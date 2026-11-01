@@ -1,59 +1,108 @@
-// v1 swing detection behind the SPEC.md contract. CV-4 replaces the internals with the
-// phase-gated state machine; keep the createSwing()/update() signature and event shape.
-import { L, torsoLen } from './geometry.js';
+// Phase-gated swing detector (CV-4). Pure: no DOM, time is passed in.
+//
+// A swing is a forehand-style move by the DOMINANT hand only, seen from a camera the player faces:
+//   IDLE -> BACK    wrist held outboard of its own shoulder (backswing posture) for >= BACK_FRAMES
+//   BACK -> FWD     wrist moves back toward the body's midline faster than V_FWD for >= FWD_FRAMES
+//   FWD  -> fire    when speed falls to PEAK_DROP x its peak (or FWD_MAX_MS passes), if the elbow
+//                   was extended at the peak. Fires once, then COOLDOWN_MS of silence.
+// The wrist is measured RELATIVE to the dominant shoulder and in shoulder-widths, so walking,
+// leaning and camera distance do not change the numbers. Only the dominant wrist is tracked.
+import { L, shoulderWidth, angle } from './geometry.js';
 
-const SWING_ON = 4.2; // torso-lengths / second (v1 threshold)
+// Exported for live tuning from the console: PLARP_SWING.V_FWD = 3
+export const SWING_TUNE = {
+  BACK_U: 0.5,         // shoulder-widths outboard of the shoulder = backswing posture
+  BACK_FRAMES: 3,
+  V_FWD: 4,            // shoulder-widths per second, inward
+  FWD_FRAMES: 2,
+  ELBOW_MIN_DEG: 120,  // elbow must be at least this extended at the peak
+  MIN_VIS: 0.5,        // wrist, elbow and both shoulders must be this visible
+  COOLDOWN_MS: 1500,
+  STALE_MS: 600,       // backswing expires after this long with no posture and no forward motion
+  FWD_MAX_MS: 450,
+  PEAK_DROP: 0.55,
+  VEL_WINDOW_MS: 120,
+  SHOULDER_M: 0.4      // assumed real shoulder width, metres, for the mph estimate
+};
 
-function wristSpeed(arr, now, torso) {
-  if (arr.length < 2) return { s: 0, vx: 0, vy: 0 };
-  const cur = arr[arr.length - 1];
-  let ref = arr[0];
-  for (const p of arr) { if (now - p.t <= 130) { ref = p; break; } }
-  const dt = (cur.t - ref.t) / 1000;
-  if (dt < 0.03) return { s: 0, vx: 0, vy: 0 };
-  const dx = cur.x - ref.x, dy = cur.y - ref.y;
-  return { s: Math.hypot(dx, dy) / dt / torso, vx: dx / dt, vy: dy / dt };
-}
+const IDX = {
+  r: { wr: L.RWR, el: L.REL, sh: L.RSH, other: L.LSH },
+  l: { wr: L.LWR, el: L.LEL, sh: L.LSH, other: L.RSH }
+};
 
-export function createSwing() {
-  const hist = { l: [], r: [] };
-  let swing = null;
-  let cool = 0;
+export function createSwing(tune = SWING_TUNE) {
+  const hist = [];
+  let state = 'IDLE';
+  let backFrames = 0, fwdFrames = 0;
+  let tBackLast = 0, tFwd = 0, cool = 0;
+  let peak = null;
+
+  function reset() {
+    state = 'IDLE'; backFrames = 0; fwdFrames = 0; peak = null;
+  }
 
   return {
-    reset() { hist.l.length = 0; hist.r.length = 0; swing = null; },
-    // P: 33 display-space landmarks, calib: from setup (unused in v1), now: ms
-    update(P, calib, now) {
-      const torso = torsoLen(P);
-      for (const [k, i] of [['l', L.LWR], ['r', L.RWR]]) {
-        if (P[i].v > 0.4) {
-          hist[k].push({ t: now, x: P[i].x, y: P[i].y });
-          while (hist[k].length && now - hist[k][0].t > 450) hist[k].shift();
-        } else hist[k].length = 0;
-      }
-      const l = wristSpeed(hist.l, now, torso), r = wristSpeed(hist.r, now, torso);
-      const w = l.s > r.s ? { ...l, who: 'l' } : { ...r, who: 'r' };
+    reset() { hist.length = 0; reset(); cool = 0; },
 
-      if (!swing && now > cool && w.s > SWING_ON) {
-        swing = { t0: now, peak: w.s, vx: w.vx, vy: w.vy, who: w.who };
+    // P: 33 display-space landmarks. calib: { dominant: 'l'|'r', ... } or null (defaults to 'r'). now: ms.
+    update(P, calib, now) {
+      const side = calib && calib.dominant === 'l' ? 'l' : 'r';
+      const ix = IDX[side];
+      const wr = P[ix.wr], el = P[ix.el], sh = P[ix.sh], other = P[ix.other];
+
+      if ([wr, el, sh, other].some(p => !p || p.v < tune.MIN_VIS)) { hist.length = 0; reset(); return null; }
+
+      const sw = shoulderWidth(P);
+      const out = Math.sign(sh.x - other.x) || 1;           // which way is "outboard" for this arm
+      const rel = { x: wr.x - sh.x, y: wr.y - sh.y };
+      const u = rel.x * out / sw;                           // + = wrist outboard of the shoulder
+
+      hist.push({ t: now, x: rel.x, y: rel.y });
+      while (hist.length && now - hist[0].t > 300) hist.shift();
+
+      // velocity of the wrist relative to the shoulder over ~VEL_WINDOW_MS
+      let vin = 0, vx = 0, vy = 0;
+      const cur = hist[hist.length - 1];
+      const ref = hist.find(h => now - h.t <= tune.VEL_WINDOW_MS) || cur;
+      const dt = (cur.t - ref.t) / 1000;
+      if (dt >= 0.05) {
+        vx = (cur.x - ref.x) / dt; vy = (cur.y - ref.y) / dt;
+        vin = -vx * out / sw;                               // + = moving back toward the body
+      }
+
+      if (now < cool) return null;
+
+      if (state === 'IDLE') {
+        backFrames = u >= tune.BACK_U ? backFrames + 1 : 0;
+        if (backFrames >= tune.BACK_FRAMES) { state = 'BACK'; tBackLast = now; fwdFrames = 0; }
         return null;
       }
-      if (!swing) return null;
 
-      if (w.s > swing.peak) { swing.peak = w.s; swing.vx = w.vx; swing.vy = w.vy; swing.who = w.who; }
-      if (w.s < swing.peak * 0.55 || now - swing.t0 > 300) {
-        const s = swing;
-        swing = null;
-        cool = now + 1300;
-        const wr = P[s.who === 'l' ? L.LWR : L.RWR];
+      if (state === 'BACK') {
+        if (u >= tune.BACK_U) tBackLast = now;
+        fwdFrames = vin >= tune.V_FWD ? fwdFrames + 1 : 0;
+        if (fwdFrames >= tune.FWD_FRAMES) {
+          state = 'FWD'; tFwd = now;
+          peak = { v: vin, vx, vy, wrist: { x: wr.x, y: wr.y }, elbow: angle(sh, el, wr) };
+        } else if (now - tBackLast > tune.STALE_MS) reset();
+        return null;
+      }
+
+      // FWD
+      if (vin > peak.v) peak = { v: vin, vx, vy, wrist: { x: wr.x, y: wr.y }, elbow: angle(sh, el, wr) };
+      if (vin < peak.v * tune.PEAK_DROP || now - tFwd > tune.FWD_MAX_MS) {
+        const p = peak;
+        reset();
+        if (p.elbow < tune.ELBOW_MIN_DEG) return null;      // a bent-arm flail is not a swing
+        cool = now + tune.COOLDOWN_MS;
         return {
           type: 'swing',
-          realMph: s.peak * 0.5 * 2.237, // torso ~ 0.5 m, m/s -> mph
-          power: Math.min(1, s.peak / 10),
-          wrist: { x: wr.x, y: wr.y },
-          side: s.who,
+          realMph: p.v * tune.SHOULDER_M * 2.237,           // shoulder-widths/s -> m/s -> mph
+          power: Math.min(1, p.v / 12),
+          wrist: p.wrist,
+          side,
           t: now,
-          launch: { vx: s.vx, vy: s.vy }
+          launch: { vx: p.vx, vy: p.vy }                    // transitional: CV-5 replaces this with a fixed arc
         };
       }
       return null;

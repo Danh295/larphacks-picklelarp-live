@@ -1,5 +1,5 @@
 import { loadPose, detect } from './cv/pose.js';
-import { createSwing } from './cv/swing.js';
+import { createSwing, SWING_TUNE } from './cv/swing.js';
 import { createSetup } from './cv/setup.js';
 import { LandmarkSmoother, TUNE } from './cv/filter.js';
 import { L, torsoLen } from './cv/geometry.js';
@@ -17,6 +17,7 @@ let rawPose = null;  // raw landmarks (debug view only)
 let debug = false;
 const smoother = new LandmarkSmoother(W, H);
 window.PLARP_FILTER = TUNE; // live tuning from the console, e.g. PLARP_FILTER.BETA = 12
+window.PLARP_SWING = SWING_TUNE; // e.g. PLARP_SWING.V_FWD = 3 if real swings are missed
 
 const store = {
   get(k) { try { return localStorage.getItem(k); } catch (e) { return null; } },
