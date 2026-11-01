@@ -101,8 +101,7 @@ export function createSwing(tune = SWING_TUNE) {
           power: Math.min(1, p.v / 12),
           wrist: p.wrist,
           side,
-          t: now,
-          launch: { vx: p.vx, vy: p.vy }                    // transitional: CV-5 replaces this with a fixed arc
+          t: now
         };
       }
       return null;

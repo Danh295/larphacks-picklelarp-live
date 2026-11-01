@@ -119,7 +119,7 @@ addEventListener('keydown', e => {
   const k = e.key.toLowerCase();
   if (k === 's') {
     onSwing({ type: 'swing', realMph: 3 + Math.random() * 5, power: 0.6,
-      wrist: { x: W * 0.55, y: H * 0.55 }, side: 'r', t: performance.now(), launch: { vx: 600, vy: -300 } });
+      wrist: { x: W * 0.55, y: H * 0.55 }, side: 'r', t: performance.now() });
   }
   if (k === 'd') debug = !debug;
   if (k === 'j') boom();

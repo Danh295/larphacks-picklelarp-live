@@ -1,5 +1,6 @@
 // Broadcast effects: ball, confetti, lower-third, big text, HUD.
 import { grunt, thwack, sadClap, crowd, say } from './audio.js';
+import { launch as launchBall, step as stepBall } from './ball.js';
 
 const $ = id => document.getElementById(id);
 let W = 1280, H = 720;
@@ -73,7 +74,7 @@ export function updateHud() {
 }
 
 // swing event -> broadcast. `ev` follows the contract in SPEC.md:
-// { type:'swing', realMph, power, wrist:{x,y}, side, t } plus optional launch {vx,vy} (v1 behavior, replaced in CV-5)
+// { type:'swing', realMph, power, wrist:{x,y}, side, t }
 export function onSwing(ev) {
   const CONF = 16.5; // Confidence Coefficient
   const real = ev.realMph;
@@ -85,12 +86,7 @@ export function onSwing(ev) {
   state.dupr = Math.min(9.99, state.dupr + 0.3 + Math.random() * 0.45);
   updateHud();
 
-  const sp = Math.hypot(ev.launch.vx, ev.launch.vy) || 1;
-  balls.push({
-    x: ev.wrist.x, y: ev.wrist.y,
-    vx: ev.launch.vx / sp * 1100, vy: ev.launch.vy / sp * 1100 - 150,
-    t: performance.now(), trail: []
-  });
+  balls.push(launchBall(ev.wrist, W, H)); // fixed arc; the swing only triggers it
 
   const msg = state.honest ? `${shown.toFixed(1)} mph (honest)` : `${Math.round(shown)} mph`;
   const tag = state.honest ? 'Respectable.' : (shown >= 150 ? 'WORLD RECORD' : 'FASTEST EVER');
@@ -123,9 +119,9 @@ export function sad() {
 
 export function drawBalls(ctx, now, dt) {
   for (let i = balls.length - 1; i >= 0; i--) {
-    const b = balls[i], age = (now - b.t) / 1000;
-    if (age > 1.6) { balls.splice(i, 1); continue; }
-    b.x += b.vx * dt; b.y += b.vy * dt; b.vy += 700 * dt;
+    const b = balls[i];
+    stepBall(b, dt);
+    if (b.dead) { balls.splice(i, 1); continue; }
     b.trail.push({ x: b.x, y: b.y });
     if (b.trail.length > 14) b.trail.shift();
     ctx.save();
@@ -136,7 +132,7 @@ export function drawBalls(ctx, now, dt) {
     }
     ctx.globalAlpha = 1;
     ctx.fillStyle = '#d4ff1f'; ctx.strokeStyle = '#6b8000'; ctx.lineWidth = 3;
-    ctx.beginPath(); ctx.arc(b.x, b.y, 22, 0, 7); ctx.fill(); ctx.stroke();
+    ctx.beginPath(); ctx.arc(b.x, b.y, b.r, 0, 7); ctx.fill(); ctx.stroke();
     ctx.fillStyle = '#6b8000';
     for (const [ox, oy] of [[-8, -6], [7, -8], [0, 4], [-9, 9], [10, 7]]) {
       ctx.beginPath(); ctx.arc(b.x + ox, b.y + oy, 3, 0, 7); ctx.fill();
