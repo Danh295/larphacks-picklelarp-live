@@ -1,0 +1,569 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>PickleLARP Live</title>
+<style>
+:root{--ink:#0a1020;--lime:#d4ff1f;--red:#ff2d3d;--blue:#2b6bff;--paper:#f4efe0}
+*{box-sizing:border-box}
+html,body{margin:0;height:100%;background:#05070f;color:#fff;font-family:Impact,"Arial Narrow Bold","Helvetica Neue",Arial,sans-serif;overflow:hidden}
+#stage{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);background:#000;overflow:hidden}
+canvas{width:100%;height:100%;display:block;cursor:crosshair}
+.hud{position:absolute;top:12px;left:12px;display:flex;gap:8px;pointer-events:none}
+.stat{background:rgba(10,16,32,.82);border-left:5px solid var(--lime);padding:6px 12px;min-width:92px}
+.stat small{display:block;font:600 11px/1 system-ui,sans-serif;letter-spacing:.12em;color:#9fb0d0;text-transform:uppercase}
+.stat b{font-size:28px;letter-spacing:.02em;font-weight:400}
+.stat.bad{border-left-color:var(--red)}
+#lower{position:absolute;left:0;bottom:46px;transform:translateX(-110%);transition:transform .35s cubic-bezier(.2,.8,.2,1);pointer-events:none;max-width:90%}
+#lower.show{transform:translateX(0)}
+#lower .a{background:var(--lime);color:var(--ink);padding:6px 18px;font-size:22px;letter-spacing:.03em}
+#lower .b{background:rgba(10,16,32,.92);padding:8px 18px;font-size:34px;border-bottom:4px solid var(--lime)}
+#big{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;text-align:center;font-size:clamp(36px,9vw,120px);line-height:1;text-shadow:0 4px 0 #000,0 0 30px rgba(0,0,0,.8);pointer-events:none;opacity:0;padding:0 20px}
+#big.show{animation:pop 2.6s ease-out forwards}
+@keyframes pop{0%{opacity:0;transform:scale(.4) rotate(-4deg)}10%{opacity:1;transform:scale(1.08) rotate(-2deg)}85%{opacity:1}100%{opacity:0;transform:scale(1)}}
+#flash{position:absolute;inset:0;pointer-events:none;opacity:0}
+#flash.on{animation:fl .25s steps(1) infinite;opacity:.55}
+@keyframes fl{0%{background:var(--red)}50%{background:var(--blue)}}
+#cite{position:absolute;right:16px;top:50%;transform:translateY(-50%) rotate(2deg);width:min(340px,46%);background:var(--paper);color:#201a10;padding:14px 16px;box-shadow:0 12px 40px rgba(0,0,0,.6);display:none;font:600 14px/1.35 "Courier New",monospace}
+#cite.show{display:block}
+#cite h2{margin:0 0 6px;font:400 26px/1 Impact,sans-serif;letter-spacing:.04em;color:#a00;border-bottom:3px double #201a10;padding-bottom:6px}
+#cite canvas{width:100%;height:auto;aspect-ratio:1;border:3px solid #201a10;margin:6px 0;cursor:default;filter:grayscale(.3) contrast(1.1)}
+#cite.wanted{background:#e9d9a8}
+#cite.wanted h2{color:#5a2a00;font-size:46px;text-align:center}
+#cite button{font:inherit;background:#201a10;color:#fff;border:0;padding:8px 12px;margin-top:6px;cursor:pointer;width:100%}
+#cite .verdict{margin-top:6px;font-weight:700;color:#a00}
+#ticker{position:absolute;left:0;right:0;bottom:0;height:38px;background:var(--ink);border-top:3px solid var(--lime);overflow:hidden;white-space:nowrap;pointer-events:none}
+#ticker div{display:inline-block;padding-left:100%;line-height:35px;font-size:19px;letter-spacing:.04em;animation:tick 70s linear infinite}
+@keyframes tick{to{transform:translateX(-100%)}}
+#ticker span{color:var(--lime);margin:0 10px}
+#bar{position:fixed;right:10px;top:10px;z-index:5;display:flex;gap:6px;flex-wrap:wrap;justify-content:flex-end;max-width:70vw}
+#bar button,#bar input{font:600 12px system-ui,sans-serif;background:rgba(10,16,32,.9);color:#fff;border:1px solid #3a4a70;padding:7px 10px;cursor:pointer}
+#bar input{width:130px;cursor:text}
+#bar button.on{background:var(--lime);color:var(--ink);border-color:var(--lime)}
+#hint{position:absolute;left:50%;top:70px;transform:translateX(-50%);background:var(--lime);color:var(--ink);padding:8px 16px;font:700 15px system-ui,sans-serif;display:none;text-align:center}
+#hint.show{display:block}
+#intro{position:fixed;inset:0;z-index:10;background:radial-gradient(circle at 30% 20%,#12306a,#05070f 70%);display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;padding:24px;gap:14px}
+#intro h1{margin:0;font-size:clamp(44px,9vw,110px);line-height:.95;letter-spacing:.02em}
+#intro h1 em{color:var(--lime);font-style:normal}
+#intro p{margin:0;font:500 clamp(14px,2vw,20px) system-ui,sans-serif;color:#b9c6e4;max-width:640px}
+#intro button{font:400 30px Impact,sans-serif;letter-spacing:.05em;background:var(--lime);color:var(--ink);border:0;padding:14px 38px;cursor:pointer;margin-top:8px}
+#status{font:600 13px system-ui,sans-serif;color:#9fb0d0;min-height:18px}
+#keys{font:12px system-ui,sans-serif;color:#6f7fa3}
+</style>
+</head>
+<body>
+<div id="intro">
+  <h1>PICKLE<em>LARP</em><br>LIVE</h1>
+  <p>You don't need to be good at pickleball. You just need to look like it. Webcam only. No ball required.</p>
+  <button id="start">GO LIVE</button>
+  <div id="status"></div>
+  <div id="keys">Stand back so your feet are in frame. Test keys: S swing · K kitchen fault · J jumbotron · T tennis</div>
+</div>
+
+<div id="bar">
+  <input id="name" placeholder="Your pro name" maxlength="24">
+  <button id="btnLine">Set kitchen line</button>
+  <button id="btnHonest" title="Show the real, uninflated swing speed">Honest mode: off</button>
+  <button id="btnSkel" class="on">Skeleton</button>
+</div>
+
+<div id="stage">
+  <canvas id="cv"></canvas>
+  <div class="hud">
+    <div class="stat"><small>DUPR</small><b id="dupr">2.10</b></div>
+    <div class="stat"><small>Top speed</small><b id="top">0 mph</b></div>
+    <div class="stat bad"><small>Prior offenses</small><b id="offs">0</b></div>
+  </div>
+  <div id="hint"></div>
+  <div id="lower"><div class="a" id="lowA">YOU · WORLD NO. 1 (SELF-REPORTED)</div><div class="b" id="lowB">147 mph</div></div>
+  <div id="big"></div>
+  <div id="flash"></div>
+  <div id="cite"></div>
+  <div id="ticker"><div id="tickTxt"></div></div>
+</div>
+
+<script type="module">
+const VISION = 'https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.35';
+const MODEL = 'https://storage.googleapis.com/mediapipe-models/pose_landmarker/pose_landmarker_lite/float16/latest/pose_landmarker_lite.task';
+
+const $ = id => document.getElementById(id);
+const cv = $('cv'), ctx = cv.getContext('2d');
+const stage = $('stage');
+let W = 1280, H = 720;
+let video = null, landmarker = null, camOK = false, started = false;
+let showSkel = true, honest = false;
+let dupr = 2.1, topMph = 0, offenses = 0;
+
+// persistence (never required)
+const store = {
+  get(k){ try { return localStorage.getItem(k); } catch(e){ return null; } },
+  set(k,v){ try { localStorage.setItem(k,v); } catch(e){} }
+};
+$('name').value = store.get('plarp.name') || '';
+$('name').addEventListener('input', e => store.set('plarp.name', e.target.value));
+const proName = () => ($('name').value.trim() || 'YOU').toUpperCase();
+
+// ---------- layout ----------
+function fit(){
+  const s = Math.min(innerWidth / W, innerHeight / H);
+  stage.style.width = W * s + 'px';
+  stage.style.height = H * s + 'px';
+}
+cv.width = W; cv.height = H; fit();
+addEventListener('resize', fit);
+
+// ---------- audio (all synthesized, no downloads) ----------
+let AC = null, master = null;
+function initAudio(){
+  if (AC) return;
+  AC = new (window.AudioContext || window.webkitAudioContext)();
+  master = AC.createGain(); master.gain.value = 0.85; master.connect(AC.destination);
+}
+function noiseBuf(sec){
+  const b = AC.createBuffer(1, Math.floor(AC.sampleRate * sec), AC.sampleRate);
+  const d = b.getChannelData(0);
+  for (let i = 0; i < d.length; i++) d[i] = Math.random() * 2 - 1;
+  return b;
+}
+function siren(sec = 2.6){
+  if (!AC) return;
+  const t = AC.currentTime;
+  const o = AC.createOscillator(), g = AC.createGain(), lfo = AC.createOscillator(), lg = AC.createGain();
+  o.type = 'sawtooth'; o.frequency.value = 950;
+  lfo.frequency.value = 1.7; lg.gain.value = 380;
+  lfo.connect(lg); lg.connect(o.frequency);
+  g.gain.setValueAtTime(0.22, t); g.gain.linearRampToValueAtTime(0, t + sec);
+  o.connect(g); g.connect(master);
+  o.start(t); lfo.start(t); o.stop(t + sec); lfo.stop(t + sec);
+}
+function grunt(p){
+  if (!AC) return;
+  const t = AC.currentTime;
+  const o = AC.createOscillator(), f = AC.createBiquadFilter(), g = AC.createGain();
+  o.type = 'sawtooth';
+  o.frequency.setValueAtTime(190, t); o.frequency.exponentialRampToValueAtTime(70, t + 0.35);
+  f.type = 'bandpass'; f.Q.value = 2.5;
+  f.frequency.setValueAtTime(750, t); f.frequency.linearRampToValueAtTime(330, t + 0.35);
+  g.gain.setValueAtTime(0.0001, t);
+  g.gain.exponentialRampToValueAtTime(0.2 + 0.7 * p, t + 0.05);
+  g.gain.exponentialRampToValueAtTime(0.0001, t + 0.42);
+  o.connect(f); f.connect(g); g.connect(master);
+  o.start(t); o.stop(t + 0.45);
+}
+function burst(freq, dur, vol, type = 'lowpass'){
+  if (!AC) return;
+  const t = AC.currentTime;
+  const s = AC.createBufferSource(); s.buffer = noiseBuf(dur);
+  const f = AC.createBiquadFilter(); f.type = type; f.frequency.value = freq;
+  const g = AC.createGain(); g.gain.setValueAtTime(vol, t); g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+  s.connect(f); f.connect(g); g.connect(master); s.start(t);
+}
+const thwack = () => burst(1800, 0.09, 0.7);
+const sadClap = () => burst(2600, 0.14, 0.6, 'highpass');
+function crowd(sec = 3){
+  if (!AC) return;
+  const t = AC.currentTime;
+  const s = AC.createBufferSource(); s.buffer = noiseBuf(sec);
+  const f = AC.createBiquadFilter(); f.type = 'bandpass'; f.frequency.value = 700; f.Q.value = 0.6;
+  const g = AC.createGain();
+  g.gain.setValueAtTime(0.0001, t); g.gain.linearRampToValueAtTime(0.7, t + 0.5); g.gain.linearRampToValueAtTime(0.0001, t + sec);
+  s.connect(f); f.connect(g); g.connect(master); s.start(t);
+  for (let i = 0; i < 14; i++) setTimeout(() => burst(2400 + Math.random() * 1500, 0.07, 0.25, 'highpass'), 200 + Math.random() * 1800);
+}
+function say(text){
+  try {
+    speechSynthesis.cancel();
+    const u = new SpeechSynthesisUtterance(text);
+    u.rate = 1.08; u.pitch = 0.7;
+    const v = speechSynthesis.getVoices().find(v => /^en-(US|GB)/.test(v.lang));
+    if (v) u.voice = v;
+    speechSynthesis.speak(u);
+  } catch(e){}
+}
+
+// ---------- copy ----------
+const LINES = [
+  "What a put away! That is a man with a mortgage and a dream.",
+  "The crowd is on its feet. The crowd is three retirees.",
+  "Textbook. I don't know which textbook.",
+  "Ben Johns is watching from home. Ben Johns is scared.",
+  "He has never hit a ball and it shows. In a good way.",
+  "Absolutely nobody saw that coming, including the player.",
+  "That is a sponsored swing. The sponsor is his mother.",
+  "Pure power. Zero accuracy. Wonderful.",
+  "The ball is in a different zip code.",
+  "Coaches hate this one weird trick."
+];
+let lineOrder = [], lineIdx = 0;
+function nextLine(){
+  if (lineIdx >= lineOrder.length){
+    lineOrder = LINES.map((_, i) => i).sort(() => Math.random() - .5); lineIdx = 0;
+  }
+  return LINES[lineOrder[lineIdx++]];
+}
+const SPONSORS = [
+  "Dink Juice, the official hydration of people who can't play",
+  "Big Dill Energy Drink",
+  "Third Shot Drop Insurance",
+  "Kitchen Counter Cabinets: stay out of ours",
+  "Paddle & Co. Therapy",
+  "Retiree Rally Mortgage Brokers",
+  "NVZ Legal Defense LLP"
+];
+function renderTicker(extra){
+  const arr = extra ? [extra, ...SPONSORS] : SPONSORS;
+  const html = arr.map(s => `<span>◆</span>PICKLELARP LIVE IS BROUGHT TO YOU BY ${s.toUpperCase()}`).join('');
+  $('tickTxt').innerHTML = html + html;
+}
+renderTicker();
+
+// ---------- HUD helpers ----------
+let lowT = 0, bigT = 0;
+function lower(a, b){
+  $('lowA').textContent = a; $('lowB').textContent = b;
+  const el = $('lower'); el.classList.add('show');
+  clearTimeout(lowT); lowT = setTimeout(() => el.classList.remove('show'), 4200);
+}
+function big(text, color = '#fff'){
+  const el = $('big'); el.textContent = text; el.style.color = color;
+  el.classList.remove('show'); void el.offsetWidth; el.classList.add('show');
+}
+function hint(text){
+  const h = $('hint'); h.textContent = text || ''; h.classList.toggle('show', !!text);
+}
+function updateHud(){
+  $('dupr').textContent = dupr.toFixed(2);
+  $('top').textContent = Math.round(topMph) + ' mph';
+  $('offs').textContent = offenses;
+}
+
+// ---------- kitchen line ----------
+let linePts = [];            // display-space px: A, B, inside point C
+let settingLine = false;
+(function(){ const s = store.get('plarp.line'); if (s) { try { linePts = JSON.parse(s).map(p => ({x: p.x * W, y: p.y * H})); } catch(e){ linePts = []; } if (linePts.length !== 3) linePts = []; } })();
+$('btnLine').onclick = () => {
+  settingLine = true; linePts = [];
+  $('btnLine').classList.add('on');
+  hint('Click 1/3: one end of the taped kitchen line');
+};
+cv.addEventListener('click', e => {
+  if (!settingLine) return;
+  const r = cv.getBoundingClientRect();
+  linePts.push({ x: (e.clientX - r.left) / r.width * W, y: (e.clientY - r.top) / r.height * H });
+  if (linePts.length === 1) hint('Click 2/3: the other end of the line');
+  else if (linePts.length === 2) hint('Click 3/3: any point INSIDE the kitchen (the side you must not step on)');
+  else {
+    settingLine = false; hint(''); $('btnLine').classList.remove('on');
+    store.set('plarp.line', JSON.stringify(linePts.map(p => ({x: p.x / W, y: p.y / H}))));
+  }
+});
+const side = (A, B, P) => Math.sign((B.x - A.x) * (P.y - A.y) - (B.y - A.y) * (P.x - A.x));
+function inKitchen(P){
+  if (linePts.length !== 3) return false;
+  return side(linePts[0], linePts[1], P) === side(linePts[0], linePts[1], linePts[2]) && side(linePts[0], linePts[1], P) !== 0;
+}
+function drawKitchen(){
+  if (linePts.length < 2) return;
+  const [A, B, C] = linePts;
+  const dx = B.x - A.x, dy = B.y - A.y, len = Math.hypot(dx, dy) || 1;
+  const ux = dx / len, uy = dy / len;
+  if (linePts.length === 3){
+    let nx = -uy, ny = ux;
+    if (side(A, B, { x: A.x + nx, y: A.y + ny }) !== side(A, B, C)) { nx = -nx; ny = -ny; }
+    const K = 4000;
+    ctx.save();
+    ctx.beginPath();
+    ctx.moveTo(A.x - ux * K, A.y - uy * K); ctx.lineTo(B.x + ux * K, B.y + uy * K);
+    ctx.lineTo(B.x + ux * K + nx * K, B.y + uy * K + ny * K); ctx.lineTo(A.x - ux * K + nx * K, A.y - uy * K + ny * K);
+    ctx.closePath(); ctx.fillStyle = 'rgba(255,45,61,.2)'; ctx.fill();
+    ctx.restore();
+  }
+  ctx.save();
+  ctx.strokeStyle = '#ffe600'; ctx.lineWidth = 6; ctx.setLineDash([22, 12]);
+  ctx.beginPath(); ctx.moveTo(A.x - ux * K2(), A.y - uy * K2()); ctx.lineTo(B.x + ux * K2(), B.y + uy * K2()); ctx.stroke();
+  ctx.restore();
+  if (linePts.length === 3){
+    ctx.fillStyle = '#fff'; ctx.font = '22px Impact'; ctx.fillText('NON-VOLLEY ZONE', Math.min(A.x, B.x) + 8, Math.min(A.y, B.y) - 10);
+  }
+}
+const K2 = () => 4000;
+
+// ---------- pose ----------
+let pose = null;      // array of {x,y,v} in display px (mirrored)
+let rawNose = null;
+const hist = { l: [], r: [] };
+function torsoLen(P){
+  const sh = { x: (P[11].x + P[12].x) / 2, y: (P[11].y + P[12].y) / 2 };
+  const hp = { x: (P[23].x + P[24].x) / 2, y: (P[23].y + P[24].y) / 2 };
+  return Math.max(40, Math.hypot(sh.x - hp.x, sh.y - hp.y));
+}
+function wristSpeed(arr, now, torso){
+  // compare newest to the sample closest to 110ms ago
+  if (arr.length < 2) return { s: 0, vx: 0, vy: 0, path: 0 };
+  const cur = arr[arr.length - 1];
+  let ref = arr[0];
+  for (const p of arr){ if (now - p.t <= 130) { ref = p; break; } }
+  const dt = (cur.t - ref.t) / 1000;
+  if (dt < 0.03) return { s: 0, vx: 0, vy: 0, path: 0 };
+  const dx = cur.x - ref.x, dy = cur.y - ref.y;
+  let path = 0;
+  for (let i = 1; i < arr.length; i++) path += Math.hypot(arr[i].x - arr[i-1].x, arr[i].y - arr[i-1].y);
+  return { s: Math.hypot(dx, dy) / dt / torso, vx: dx / dt, vy: dy / dt, path: path / torso };
+}
+
+// swing state machine
+let swing = null, swingCool = 0;
+const SWING_ON = 4.2;     // torso-lengths / second
+function processSwing(now, torso){
+  const l = wristSpeed(hist.l, now, torso), r = wristSpeed(hist.r, now, torso);
+  const w = l.s > r.s ? { ...l, who: 'l' } : { ...r, who: 'r' };
+  if (!swing && now > swingCool && w.s > SWING_ON){
+    swing = { t0: now, peak: w.s, vx: w.vx, vy: w.vy, who: w.who, path: w.path };
+  } else if (swing){
+    if (w.s > swing.peak){ swing.peak = w.s; swing.vx = w.vx; swing.vy = w.vy; swing.who = w.who; }
+    swing.path = Math.max(swing.path, w.path);
+    if (w.s < swing.peak * 0.55 || now - swing.t0 > 300){
+      fireSwing(swing.peak, swing.vx, swing.vy, swing.who, swing.path);
+      swing = null; swingCool = now + 1300;
+    }
+  }
+}
+
+// ---------- effects ----------
+const balls = [], confetti = [];
+function fireSwing(peak, vx, vy, who, path){
+  const real = peak * 0.5 * 2.237;                    // torso ≈ 0.5 m, m/s -> mph
+  const CONF = 16.5;                                  // Confidence Coefficient
+  let shown = honest ? real : Math.max(real * CONF, 118 + Math.random() * 28);
+  shown = Math.min(shown, 199);
+  const p = Math.min(1, shown / 170);
+  grunt(p); setTimeout(thwack, 120);
+  if (shown > topMph) topMph = shown;
+  dupr = Math.min(9.99, dupr + 0.3 + Math.random() * 0.45);
+  updateHud();
+  const wr = pose ? pose[who === 'l' ? 15 : 16] : { x: W * .5, y: H * .5 };
+  const sp = Math.hypot(vx, vy) || 1;
+  balls.push({ x: wr.x, y: wr.y, vx: vx / sp * 1100, vy: vy / sp * 1100 - 150, t: performance.now(), trail: [] });
+  const msg = honest ? `${shown.toFixed(1)} mph (honest)` : `${Math.round(shown)} mph`;
+  const tag = honest ? 'Respectable.' : (shown >= 150 ? 'WORLD RECORD' : 'FASTEST EVER');
+  lower(`${proName()} · WORLD NO. 1 (SELF-REPORTED)`, `${msg} · ${tag}`);
+  if (shown >= 150 && !honest){
+    const s = SPONSORS[Math.floor(Math.random() * SPONSORS.length)];
+    renderTicker(s + ' (NEW SPONSOR UNLOCKED)');
+  }
+  setTimeout(() => say(nextLine()), 350);
+  if (path > 3.2 && !honest) setTimeout(tennis, 1700);
+}
+function tennis(){
+  big('TENNIS PLAYER DETECTED', '#ff5a5a');
+  say('Tennis player detected. You are not welcome here.');
+}
+function boom(){
+  crowd(3.2);
+  for (let i = 0; i < 170; i++){
+    confetti.push({ x: Math.random() * W, y: -20 - Math.random() * 200, vx: (Math.random() - .5) * 220, vy: 120 + Math.random() * 260,
+      r: Math.random() * 6, vr: (Math.random() - .5) * 8, c: ['#d4ff1f', '#ff2d3d', '#2b6bff', '#fff', '#ffe600'][i % 5], w: 8 + Math.random() * 8 });
+  }
+  big('POINT OF THE YEAR', '#d4ff1f');
+  lower(`${proName()}`, 'The crowd goes wild');
+  setTimeout(() => say('Ladies and gentlemen. Point of the year. He lost that point.'), 400);
+}
+function sad(){
+  sadClap();
+  big('. . .', '#9fb0d0');
+  setTimeout(() => say('A single clap. From a single man.'), 500);
+}
+
+// ---------- citation / rap sheet ----------
+let citeOpen = false, citeCool = 0;
+function citation(){
+  offenses++; updateHud();
+  siren(2.8);
+  const fl = $('flash'); fl.classList.add('on'); setTimeout(() => fl.classList.remove('on'), 2600);
+  setTimeout(() => say('Step out of the kitchen, sir.'), 200);
+  const wanted = offenses >= 3;
+  const el = $('cite');
+  const snap = document.createElement('canvas'); snap.width = snap.height = 220;
+  const sc = snap.getContext('2d');
+  if (video && camOK && rawNose){
+    const vw = video.videoWidth, vh = video.videoHeight, sz = Math.min(vw, vh) * 0.42;
+    sc.save(); sc.translate(220, 0); sc.scale(-1, 1);
+    try { sc.drawImage(video, rawNose.x * vw - sz / 2, rawNose.y * vh - sz / 2, sz, sz, 0, 0, 220, 220); } catch(e){}
+    sc.restore();
+  } else { sc.fillStyle = '#556'; sc.fillRect(0, 0, 220, 220); sc.fillStyle = '#fff'; sc.font = '22px Impact'; sc.fillText('NO FACE ON FILE', 24, 115); }
+  el.className = 'show' + (wanted ? ' wanted' : '');
+  el.innerHTML = wanted
+    ? `<h2>WANTED</h2><div id="snapSlot"></div><div style="text-align:center">for repeated crimes against the kitchen<br>${proName()}<br>Prior offenses: ${offenses}<br>Reward: 3 dinks</div>`
+    : `<h2>NOTICE OF VIOLATION</h2><div id="snapSlot"></div>Offender: ${proName()}<br>Rule 9.A: Non-volley zone<br>Fine: 3 dinks<br>Officer: PickleLARP AI<br>Prior offenses: ${offenses}<div class="verdict" id="verdict"></div><button id="challenge">CHALLENGE THE CALL</button>`;
+  $('snapSlot').appendChild(snap);
+  const chal = $('challenge');
+  if (chal) chal.onclick = () => {
+    $('verdict').textContent = 'UPON FURTHER REVIEW...';
+    chal.disabled = true;
+    setTimeout(() => { $('verdict').textContent = 'THE CALL STANDS. You are still in the kitchen.'; say('The call stands.'); }, 2000);
+  };
+  citeOpen = true;
+  clearTimeout(citation.t); citation.t = setTimeout(() => { el.className = ''; citeOpen = false; }, wanted ? 9000 : 8000);
+}
+
+// ---------- main loop ----------
+let kitchenFrames = 0, upBoth = 0, upOne = 0, jumboCool = 0;
+let lastVT = -1, lastFpsT = performance.now(), frames = 0;
+
+function process(res, now){
+  const L = res && res.landmarks && res.landmarks[0];
+  if (!L){ pose = null; rawNose = null; kitchenFrames = 0; return; }
+  rawNose = { x: L[0].x, y: L[0].y };
+  pose = L.map(p => ({ x: (1 - p.x) * W, y: p.y * H, v: p.visibility == null ? 1 : p.visibility }));
+  const torso = torsoLen(pose);
+  for (const [k, i] of [['l', 15], ['r', 16]]){
+    if (pose[i].v > 0.4){
+      hist[k].push({ t: now, x: pose[i].x, y: pose[i].y });
+      while (hist[k].length && now - hist[k][0].t > 450) hist[k].shift();
+    } else hist[k].length = 0;
+  }
+  processSwing(now, torso);
+
+  // kitchen fault
+  const feet = [29, 30, 31, 32].filter(i => pose[i].v > 0.3 && inKitchen(pose[i]));
+  kitchenFrames = feet.length ? kitchenFrames + 1 : 0;
+  if (kitchenFrames >= 4 && now > citeCool){ citeCool = now + 9000; citation(); }
+
+  // jumbotron
+  const noseY = pose[0].y, lift = torso * 0.15;
+  const lUp = pose[15].v > 0.4 && pose[15].y < noseY - lift;
+  const rUp = pose[16].v > 0.4 && pose[16].y < noseY - lift;
+  upBoth = (lUp && rUp) ? upBoth + 1 : 0;
+  upOne = (lUp !== rUp) ? upOne + 1 : 0;
+  if (now > jumboCool){
+    if (upBoth >= 10){ jumboCool = now + 6000; upBoth = 0; boom(); }
+    else if (upOne >= 20){ jumboCool = now + 6000; upOne = 0; sad(); }
+  }
+}
+
+const BONES = [[11,12],[11,13],[13,15],[12,14],[14,16],[11,23],[12,24],[23,24],[23,25],[25,27],[24,26],[26,28],[27,29],[27,31],[28,30],[28,32]];
+function drawPose(){
+  if (!pose || !showSkel) return;
+  ctx.save();
+  ctx.lineWidth = 5; ctx.strokeStyle = 'rgba(212,255,31,.9)'; ctx.lineCap = 'round';
+  for (const [a, b] of BONES){
+    if (pose[a].v < 0.3 || pose[b].v < 0.3) continue;
+    ctx.beginPath(); ctx.moveTo(pose[a].x, pose[a].y); ctx.lineTo(pose[b].x, pose[b].y); ctx.stroke();
+  }
+  for (const i of [15, 16, 27, 28, 29, 30, 31, 32]){
+    if (pose[i].v < 0.3) continue;
+    const hot = i >= 29 && inKitchen(pose[i]);
+    ctx.fillStyle = hot ? '#ff2d3d' : '#fff';
+    ctx.beginPath(); ctx.arc(pose[i].x, pose[i].y, hot ? 11 : 7, 0, 7); ctx.fill();
+  }
+  ctx.restore();
+}
+function drawBalls(now, dt){
+  for (let i = balls.length - 1; i >= 0; i--){
+    const b = balls[i], age = (now - b.t) / 1000;
+    if (age > 1.6){ balls.splice(i, 1); continue; }
+    b.x += b.vx * dt; b.y += b.vy * dt; b.vy += 700 * dt;
+    b.trail.push({ x: b.x, y: b.y }); if (b.trail.length > 14) b.trail.shift();
+    ctx.save();
+    for (let k = 0; k < b.trail.length; k++){
+      ctx.globalAlpha = k / b.trail.length * 0.5; ctx.fillStyle = '#d4ff1f';
+      ctx.beginPath(); ctx.arc(b.trail[k].x, b.trail[k].y, 5 + k, 0, 7); ctx.fill();
+    }
+    ctx.globalAlpha = 1; ctx.fillStyle = '#d4ff1f'; ctx.strokeStyle = '#6b8000'; ctx.lineWidth = 3;
+    ctx.beginPath(); ctx.arc(b.x, b.y, 22, 0, 7); ctx.fill(); ctx.stroke();
+    ctx.fillStyle = '#6b8000';
+    for (const [ox, oy] of [[-8,-6],[7,-8],[0,4],[-9,9],[10,7]]){ ctx.beginPath(); ctx.arc(b.x + ox, b.y + oy, 3, 0, 7); ctx.fill(); }
+    ctx.restore();
+  }
+}
+function drawConfetti(dt){
+  for (let i = confetti.length - 1; i >= 0; i--){
+    const c = confetti[i];
+    c.x += c.vx * dt; c.y += c.vy * dt; c.r += c.vr * dt;
+    if (c.y > H + 30){ confetti.splice(i, 1); continue; }
+    ctx.save(); ctx.translate(c.x, c.y); ctx.rotate(c.r); ctx.fillStyle = c.c; ctx.fillRect(-c.w / 2, -3, c.w, 6); ctx.restore();
+  }
+}
+
+let prevFrame = performance.now();
+function loop(){
+  requestAnimationFrame(loop);
+  const now = performance.now(), dt = Math.min(0.05, (now - prevFrame) / 1000); prevFrame = now;
+  if (camOK && video.readyState >= 2){
+    ctx.save(); ctx.translate(W, 0); ctx.scale(-1, 1); ctx.drawImage(video, 0, 0, W, H); ctx.restore();
+    if (landmarker && video.currentTime !== lastVT){
+      lastVT = video.currentTime;
+      try { process(landmarker.detectForVideo(video, now), now); } catch(e){ console.warn('detect', e); }
+    }
+  } else {
+    const g = ctx.createLinearGradient(0, 0, W, H); g.addColorStop(0, '#12306a'); g.addColorStop(1, '#05070f');
+    ctx.fillStyle = g; ctx.fillRect(0, 0, W, H);
+    ctx.fillStyle = '#9fb0d0'; ctx.font = '34px Impact'; ctx.textAlign = 'center';
+    ctx.fillText(started ? 'NO CAMERA · use test keys S / K / J / T' : '', W / 2, H / 2); ctx.textAlign = 'start';
+  }
+  drawKitchen();
+  drawPose();
+  drawBalls(now, dt);
+  drawConfetti(dt);
+}
+
+// ---------- test keys ----------
+addEventListener('keydown', e => {
+  if (e.target.tagName === 'INPUT') return;
+  if (!started) return;
+  const k = e.key.toLowerCase();
+  if (k === 's'){ pose = pose || null; fireSwing(3 + Math.random() * 5, 600, -300, 'r', 2); }
+  if (k === 'k'){ citeCool = 0; citation(); }
+  if (k === 'j'){ boom(); }
+  if (k === 'u'){ sad(); }
+  if (k === 't'){ tennis(); }
+});
+$('btnHonest').onclick = () => { honest = !honest; $('btnHonest').textContent = 'Honest mode: ' + (honest ? 'on' : 'off'); $('btnHonest').classList.toggle('on', honest); };
+$('btnSkel').onclick = () => { showSkel = !showSkel; $('btnSkel').classList.toggle('on', showSkel); };
+
+// ---------- start ----------
+$('start').onclick = async () => {
+  $('start').disabled = true;
+  initAudio(); if (AC.state === 'suspended') AC.resume();
+  const st = $('status');
+  try { speechSynthesis.getVoices(); } catch(e){}
+  try {
+    st.textContent = 'Starting camera…';
+    const stream = await navigator.mediaDevices.getUserMedia({ video: { width: { ideal: 1280 }, height: { ideal: 720 }, facingMode: 'user' }, audio: false });
+    video = document.createElement('video'); video.playsInline = true; video.muted = true; video.srcObject = stream;
+    await video.play();
+    W = video.videoWidth || 1280; H = video.videoHeight || 720;
+    cv.width = W; cv.height = H; fit();
+    linePts = linePts.map(p => p); // stored normalized, restored below
+    const s = store.get('plarp.line');
+    if (s){ try { linePts = JSON.parse(s).map(p => ({ x: p.x * W, y: p.y * H })); } catch(e){} }
+    camOK = true;
+  } catch(e){
+    st.textContent = 'Camera unavailable (' + (e.name || e) + '). Continuing in test-key mode.';
+    console.warn(e);
+  }
+  if (camOK){
+    try {
+      st.textContent = 'Loading pose model…';
+      const { FilesetResolver, PoseLandmarker } = await import(VISION + '/vision_bundle.mjs');
+      const fileset = await FilesetResolver.forVisionTasks(VISION + '/wasm');
+      const make = delegate => PoseLandmarker.createFromOptions(fileset, {
+        baseOptions: { modelAssetPath: MODEL, delegate }, runningMode: 'VIDEO', numPoses: 1,
+        minPoseDetectionConfidence: 0.5, minPosePresenceConfidence: 0.5, minTrackingConfidence: 0.5 });
+      try { landmarker = await make('GPU'); } catch(g){ console.warn('GPU failed, using CPU', g); landmarker = await make('CPU'); }
+    } catch(e){
+      st.textContent = 'Pose model failed to load: ' + (e.message || e);
+      console.error(e); camOK = true;
+    }
+  }
+  started = true;
+  $('intro').style.display = 'none';
+  updateHud();
+  if (camOK && linePts.length !== 3) hint('Tape a line on the floor, then press "Set kitchen line" and click it');
+  setTimeout(() => hint(''), 6000);
+  loop();
+};
+</script>
+</body>
+</html>
