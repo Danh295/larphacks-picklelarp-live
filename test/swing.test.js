@@ -240,7 +240,7 @@ test('fires within a few frames of the speed peak (contact), not after the swing
   let at = -1;
   frames.forEach((f, i) => { if (det.update(person(f), CALIB, 1000 + i * MS)) at = i; });
   assert.ok(at >= 0, 'fired');
-  assert.ok(at - peakIdx <= 4, `fired ${at - peakIdx} frames after the speed peak (should be <= 4 frames, about 130 ms)`);
+  assert.ok(at - peakIdx <= 3, `fired ${at - peakIdx} frames after the speed peak (should be <= 3 frames, about 100 ms)`);
 });
 
 test('a fast swing that stays on one side of the body (never crosses the centerline) fires 0 times', () => {

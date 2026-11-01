@@ -21,7 +21,7 @@ export const SWING_TUNE = {
   ELBOW_MIN: 70,       // degrees; below this the arm is folded, not swinging
   MIN_VIS: 0.4,        // wrist and shoulder must be this visible
   COOLDOWN_MS: 1500,
-  FIRE_DROP: 0.9,      // decide once speed falls to this fraction of the peak (just past contact)
+  FIRE_DROP: 0.95,     // decide once speed falls to this fraction of the peak (just past contact)
   VEL_WINDOW_MS: 105, 
   SWING_MAX_MS: 600,
   CROSS_MARGIN: 0.08,  // the wrist must get at least this far (torso lengths) onto BOTH sides of the body's centerline
