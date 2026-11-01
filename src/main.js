@@ -1,6 +1,7 @@
 import { loadPose, detect } from './cv/pose.js';
 import { createSwing } from './cv/swing.js';
 import { createSetup } from './cv/setup.js';
+import { LandmarkSmoother, TUNE } from './cv/filter.js';
 import { L, torsoLen } from './cv/geometry.js';
 import { initAudio, resumeAudio, warmVoices } from './fx/audio.js';
 import { state, setSize, renderTicker, updateHud, hint, onSwing, boom, sad, drawBalls, drawConfetti } from './fx/effects.js';
@@ -11,7 +12,11 @@ const stage = $('stage');
 let W = 1280, H = 720;
 let video = null, landmarker = null, camOK = false, started = false;
 let showSkel = true;
-let pose = null;
+let pose = null;     // smoothed landmarks (used by every detector)
+let rawPose = null;  // raw landmarks (debug view only)
+let debug = false;
+const smoother = new LandmarkSmoother(W, H);
+window.PLARP_FILTER = TUNE; // live tuning from the console, e.g. PLARP_FILTER.BETA = 12
 
 const store = {
   get(k) { try { return localStorage.getItem(k); } catch (e) { return null; } },
@@ -25,7 +30,7 @@ function fit() {
   stage.style.width = W * s + 'px';
   stage.style.height = H * s + 'px';
 }
-function resize(w, h) { W = w; H = h; cv.width = W; cv.height = H; setSize(W, H); fit(); }
+function resize(w, h) { W = w; H = h; cv.width = W; cv.height = H; setSize(W, H); smoother.setSize(W, H); fit(); }
 resize(W, H);
 addEventListener('resize', fit);
 renderTicker();
@@ -47,7 +52,9 @@ function jumbotron(P, now) {
   else if (upOne >= 20) { jumboCool = now + 6000; upOne = 0; sad(); }
 }
 
-function process(P, now) {
+function process(raw, now) {
+  rawPose = raw;
+  const P = smoother.update(raw, now);
   pose = P;
   setupState = setup.update(P, now);
   if (!P || setupState.phase !== 'LIVE') return;
@@ -70,6 +77,13 @@ function drawPose() {
     if (pose[i].v < 0.3) continue;
     ctx.fillStyle = '#fff';
     ctx.beginPath(); ctx.arc(pose[i].x, pose[i].y, 7, 0, 7); ctx.fill();
+  }
+  if (debug && rawPose) { // raw detections in red, smoothed (above) in lime
+    ctx.fillStyle = '#ff2d3d';
+    for (const i of [11, 12, 15, 16, 23, 24, 27, 28]) {
+      if (rawPose[i].v < 0.3) continue;
+      ctx.beginPath(); ctx.arc(rawPose[i].x, rawPose[i].y, 5, 0, 7); ctx.fill();
+    }
   }
   ctx.restore();
 }
@@ -106,6 +120,7 @@ addEventListener('keydown', e => {
     onSwing({ type: 'swing', realMph: 3 + Math.random() * 5, power: 0.6,
       wrist: { x: W * 0.55, y: H * 0.55 }, side: 'r', t: performance.now(), launch: { vx: 600, vy: -300 } });
   }
+  if (k === 'd') debug = !debug;
   if (k === 'j') boom();
   if (k === 'u') sad();
 });
