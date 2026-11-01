@@ -1,5 +1,6 @@
 // Broadcast effects: ball, confetti, lower-third, big text, HUD.
 import { grunt, thwack, sadClap, crowd, say } from './audio.js';
+import { tipsFor } from '../cv/swing-tips.js';
 import { launch as launchBall, step as stepBall, alpha as ballAlpha } from './ball.js';
 
 const $ = id => document.getElementById(id);
@@ -8,7 +9,7 @@ export function setSize(w, h) { W = w; H = h; }
 
 export const balls = [];
 export const confetti = [];
-export const state = { dupr: 2.1, topMph: 0, honest: false };
+export const state = { dupr: 2.1, topMph: 0, honest: false, swings: [] }; // swings: last 5 { t, mph, metrics, tips }
 
 export const proName = () => ($('name').value.trim() || 'YOU').toUpperCase();
 
@@ -47,13 +48,14 @@ export function renderTicker(extra) {
 }
 
 let lowT = 0;
-export function lower(a, b) {
+export function lower(a, b, c) {
   $('lowA').textContent = a;
   $('lowB').textContent = b;
+  $('lowC').textContent = c || '';
   const el = $('lower');
   el.classList.add('show');
   clearTimeout(lowT);
-  lowT = setTimeout(() => el.classList.remove('show'), 4200);
+  lowT = setTimeout(() => el.classList.remove('show'), c ? 7000 : 4200);
 }
 export function big(text, color = '#fff') {
   const el = $('big');
@@ -90,7 +92,10 @@ export function onSwing(ev) {
 
   const msg = state.honest ? `${shown.toFixed(1)} mph (honest)` : `${Math.round(shown)} mph`;
   const tag = state.honest ? 'Respectable.' : (shown >= 150 ? 'WORLD RECORD' : 'FASTEST EVER');
-  lower(`${proName()} · WORLD NO. 1 (SELF-REPORTED)`, `${msg} · ${tag}`);
+  const tips = ev.metrics ? tipsFor(ev.metrics) : [];
+  state.swings.push({ t: ev.t, mph: shown, metrics: ev.metrics || null, tips });
+  if (state.swings.length > 5) state.swings.shift();
+  lower(`${proName()} · WORLD NO. 1 (SELF-REPORTED)`, `${msg} · ${tag}`, tips.length ? 'COACH: ' + tips.join('  ') : '');
   if (shown >= 150 && !state.honest) {
     renderTicker(SPONSORS[Math.floor(Math.random() * SPONSORS.length)] + ' (NEW SPONSOR UNLOCKED)');
   }

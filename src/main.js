@@ -149,7 +149,9 @@ addEventListener('keydown', e => {
   if (k === 's') {
     onSwing({ type: 'swing', realMph: 3 + Math.random() * 5, power: 0.6,
       wrist: { x: W * (0.3 + Math.random() * 0.4), y: H * (0.35 + Math.random() * 0.3) }, side: 'r', t: performance.now(),
-      launch: { vx: (Math.random() < 0.5 ? -1 : 1) * (700 + Math.random() * 1000), vy: (Math.random() - 0.6) * 1200 } });
+      launch: { vx: (Math.random() < 0.5 ? -1 : 1) * (700 + Math.random() * 1000), vy: (Math.random() - 0.6) * 1200 },
+      metrics: { peak: 3 + Math.random() * 7, disp: 0.5 + Math.random() * 1.2, elbow: 70 + Math.random() * 110,
+        durationMs: 250 + Math.random() * 400, angleDeg: -30 + Math.random() * 80, wristRise: -1.2 + Math.random() * 1.8 } });
     swingFeedback(performance.now());
   }
   if (e.key === '?') help.toggle();
