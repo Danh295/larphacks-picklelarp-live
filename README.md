@@ -7,7 +7,9 @@ A webcam computer-vision app (MediaPipe Pose, runs entirely on your machine) tha
 ## Features
 
 - **Guided setup**: step into frame, T-pose, hold still while it calibrates, raise your paddle hand, and "YOU ARE LIVE". It re-arms when you leave frame, so the next person gets the same flow.
-- **Pro Swing Broadcast + Inflated Radar Gun**: dominant-hand swing detection, a ball on a fixed upward broadcast arc, pro grunt, commentator, and a fake ESPN lower-third. Speed is estimated from wrist motion and body proportions, then multiplied by a "Confidence Coefficient". **Honest mode** shows the real number.
+- **Pro Swing Broadcast + Inflated Radar Gun**: dominant-hand swing detection, a ball that leaves your hand at contact and flies the way your arm moved (with gravity and a bounce), pro grunt, commentator, and a fake ESPN lower-third. Speed is estimated from wrist motion and body proportions, then multiplied by a "Confidence Coefficient". **Honest mode** shows the real number.
+- **Swing Coach**: after each swing a short tip appears (speed, elbow, swing path, contact angle and height), rule-based from your pose. It's rough guidance from a 2D webcam, not a real coach.
+- **Swing Replay**: press `R` to replay your last swings as a skeleton, scrub through them, and jump to Backswing, Forward swing, Contact and Follow-through, each with its own advice. Swings that need work are labelled and kept longer.
 - **Victory Jumbotron**: both arms up for confetti and a crowd roar, one arm for a single sad clap.
 - A DUPR that only goes up and a sponsor ticker.
 
@@ -41,8 +43,8 @@ Open http://localhost:8000, click **GO LIVE**, allow the camera.
 
 - Put the laptop 3 to 4 m away with your whole body, feet included, in frame. Good front lighting helps.
 - The app walks you through setup on screen (4 steps, shown as STEP 1 OF 4 and so on). Once LIVE, a HOW TO PLAY card lists the moves; press `?` to hide or show it. If you go 8 s without a swing it nudges you.
-- A swing is: arm out wide to the side, then whip it across your body. Both arms up = jumbotron, one arm up = sad clap.
-- No camera or no body? Test keys: `S` swing, `J` jumbotron, `U` sad clap, `L` skip setup to LIVE, `D` debug skeleton (raw red vs smoothed lime).
+- A swing is a fast move of the hand you raised in setup that goes **across your body** (it has to cross your body's centerline). Up/down arm moves, pulling the arm in, and moving it outward are ignored on purpose. Both arms up = jumbotron, one arm up = sad clap.
+- No camera or no body? Test keys: `S` swing, `J` jumbotron, `U` sad clap, `L` skip setup to LIVE, `D` debug (raw red vs smoothed lime dots, plus a panel that says why a swing did or didn't count), `R` replay, `?` hide the help card.
 
 ## Notes and limits
 
