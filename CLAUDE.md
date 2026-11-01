@@ -13,8 +13,8 @@ node --test test/                                   # all tests (node:test, no i
 node --test test/filter.test.js                     # one file
 node --test --test-name-pattern="step input" test/  # one test by name
 python3 -m http.server 8000                         # browser fallback; camera + ES modules need localhost/https
-npm start                                           # Electron shell (after APP-1)
-npm run package                                     # .app into dist/ (after APP-2)
+npm start                                           # Electron shell
+npm run package                                     # unsigned arm64 .app into dist/ (gitignored)
 ```
 
 No build step, bundler or linter: the browser loads `src/main.js` as native ES modules.
