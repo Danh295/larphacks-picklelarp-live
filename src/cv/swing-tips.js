@@ -15,6 +15,9 @@ export const TIP_TUNE = {
 
 const ok = v => Number.isFinite(v);
 
+// The two "nothing to fix" lines. A swing whose tips are only these is not a bad swing.
+export const PRAISE = ['Great racket speed. Repeat that exact swing.', 'Solid swing. Keep repeating it, then add speed.'];
+
 // Returns 1 or 2 short tips, most important first.
 export function tipsFor(m, t = TIP_TUNE) {
   const tips = [];
@@ -30,7 +33,7 @@ export function tipsFor(m, t = TIP_TUNE) {
   if (ok(x.durationMs) && x.durationMs > t.SLOW_MS) tips.push('Smooth it out: shorten the backswing so the swing is one quick motion.');
 
   if (tips.length === 0) {
-    return [ok(x.peak) && x.peak >= t.FAST ? 'Great racket speed. Repeat that exact swing.' : 'Solid swing. Keep repeating it, then add speed.'];
+    return [ok(x.peak) && x.peak >= t.FAST ? PRAISE[0] : PRAISE[1]];
   }
   return tips.slice(0, 2);
 }

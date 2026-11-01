@@ -97,3 +97,30 @@ test('clips without metrics and junk input do not throw', () => {
   assert.deepEqual(analyzeClip({ frames: [] }), []);
   assert.ok(CAVEAT.length > 0);
 });
+
+test('clips are tagged bad when the swing had a fault, and a bad clip outlives good ones when the buffer is full', () => {
+  const BAD = { ...M, peak: 3, elbow: 80 };
+  const rec = createClipRecorder();
+  for (let s = 0; s < 8; s++) {
+    const t0 = s * 5000;
+    for (let i = 0; i < 20; i++) rec.push(t0 + i * MS, person([740, 520]));
+    rec.swung({ t: t0 + 19 * MS, side: 'r', realMph: s, metrics: s === 0 ? BAD : M });
+    for (let i = 20; i < 50; i++) rec.push(t0 + i * MS, person([740, 520]));
+  }
+  const c = rec.clips();
+  assert.equal(c.length, 5);
+  assert.equal(c[0].mph, 0, 'the oldest clip is the bad swing and was kept');
+  assert.equal(c[0].bad, true);
+  assert.ok(c.slice(1).every(x => x.bad === false), 'good swings are tagged not-bad');
+  assert.deepEqual(c.map(x => x.mph), [0, 4, 5, 6, 7], 'the oldest GOOD clips were dropped first');
+  assert.ok(c[0].tips.length >= 1 && typeof c[0].tips[0] === 'string');
+});
+
+test('a clip with no metrics is not marked bad and has no tips', () => {
+  const rec = createClipRecorder();
+  for (let i = 0; i < 20; i++) rec.push(i * MS, person([740, 520]));
+  rec.swung({ t: 19 * MS, side: 'r', realMph: 5 });
+  for (let i = 20; i < 50; i++) rec.push(i * MS, person([740, 520]));
+  assert.equal(rec.clips()[0].bad, false);
+  assert.deepEqual(rec.clips()[0].tips, []);
+});

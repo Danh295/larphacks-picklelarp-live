@@ -93,7 +93,7 @@ export function createReplayPanel(rootEl, recorder) {
     }
     const W = f.P[wi]; g.fillStyle = '#fff'; g.beginPath(); g.arc(X(W), Y(W), 8, 0, 7); g.fill();
     const cur = chunkAt(a.chunks, frame); active = cur.id;
-    els.which.textContent = ` · ${idx + 1}/${clips().length} · ${Math.round(c.mph)} mph (real) · frame ${frame + 1}/${c.frames.length}`;
+    els.which.textContent = ` · ${idx + 1}/${clips().length}${c.bad ? ' · NEEDS WORK' : (c.tips && c.tips.length ? ' · GOOD' : '')} · ${Math.round(c.mph)} mph (real) · frame ${frame + 1}/${c.frames.length}`;
     els.advice.textContent = `${cur.label}: ${cur.advice}`;
     for (const b of els.chunks.children) b.classList.toggle('on', b.dataset.chunk === active);
     els.play.textContent = playing ? 'Pause' : 'Play';

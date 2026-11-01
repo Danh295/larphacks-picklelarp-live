@@ -6,7 +6,7 @@
 //   swing-tips.js (TIP_TUNE) so they stay in one place.
 // Honest framing: 2D webcam pose at ~30 fps is rough guidance, not coaching.
 import { L, torsoLen } from '../cv/geometry.js';
-import { TIP_TUNE } from '../cv/swing-tips.js';
+import { TIP_TUNE, tipsFor, PRAISE } from '../cv/swing-tips.js';
 
 export const CAVEAT = '2D webcam pose at ~30 fps: rough guidance, not coaching.';
 
@@ -26,8 +26,11 @@ export function createClipRecorder(tune = CLIP_TUNE) {
     const ev = pending; pending = null;
     const frames = buf.filter(f => f.t >= ev.t - tune.PRE_MS && f.t <= ev.t + tune.POST_MS);
     if (frames.length < 4) return;
-    clips.push({ t: ev.t, side: ev.side === 'l' ? 'l' : 'r', mph: ev.realMph, metrics: ev.metrics || null, frames });
-    while (clips.length > tune.KEEP) clips.shift();
+    const tips = ev.metrics ? tipsFor(ev.metrics) : [];
+    const bad = tips.length > 0 && !tips.every(x => PRAISE.includes(x)); // had at least one fault to fix
+    clips.push({ t: ev.t, side: ev.side === 'l' ? 'l' : 'r', mph: ev.realMph, metrics: ev.metrics || null, tips, bad, frames });
+    // when full, drop the oldest GOOD clip first so the swings worth reviewing stay around longer
+    while (clips.length > tune.KEEP) { const i = clips.findIndex(c => !c.bad); clips.splice(i >= 0 ? i : 0, 1); }
   }
 
   return {
