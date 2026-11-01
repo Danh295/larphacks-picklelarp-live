@@ -7,7 +7,7 @@ const DEFAULTS = {
   CALIBRATE: ['HOLD STILL', 'Measuring you']
 };
 const RAISE_SUB = 'The hand you swing with, straight up';
-const CALIB_SECONDS = 2; // CV-6 STILL_MS; progress restarts for the 0.5 s raise-hand step
+const DEFAULT_STILL_MS = 2000; // CV-6 SETUP_TUNE.STILL_MS; callers pass the live value
 const STING_MS = 1800;
 
 // Which of the 4 setup steps this is: 1 frame yourself, 2 T-pose, 3 hold still, 4 raise paddle hand.
@@ -19,7 +19,10 @@ function stepNumber(phase, stage) {
 }
 
 // Pure: setupState -> what to show. `stage` ('still' | 'raise') is optional; older results omit it.
-export function viewFor(s) {
+// stillMs: the live hold time (SETUP_TUNE.STILL_MS) so the countdown follows console tuning.
+// The big text is always the overlay's own short copy: setup.js messages are sentence-case
+// and too long for the 3-4 m viewing bar. `message` is used only for an unknown phase.
+export function viewFor(s, stillMs = DEFAULT_STILL_MS) {
   const phase = s && s.phase ? s.phase : 'WAITING';
   const progress = Math.min(1, Math.max(0, (s && s.progress) || 0));
   const stage = phase === 'CALIBRATE' && s && s.stage === 'raise' ? 'raise' : 'still';
@@ -28,16 +31,17 @@ export function viewFor(s) {
   if (phase === 'LIVE') {
     return { phase, text: 'YOU ARE LIVE', sub: '', stepLabel, ring: false, figure: false, arrow: false, outline: false, countdown: null, progress };
   }
-  const [defText, defSub] = DEFAULTS[phase] || DEFAULTS.WAITING;
+  const known = DEFAULTS[phase];
+  const [defText, defSub] = known || DEFAULTS.WAITING;
   const raising = phase === 'CALIBRATE' && stage === 'raise';
-  const text = s && s.message ? s.message : (raising ? 'RAISE YOUR PADDLE HAND' : defText);
+  const text = raising ? 'RAISE YOUR PADDLE HAND' : (!known && s && s.message ? s.message : defText);
   return {
     phase, text, sub: raising ? RAISE_SUB : defSub, stepLabel, progress,
     ring: phase === 'READY' || phase === 'CALIBRATE',
     figure: phase === 'READY',
     arrow: raising,
     outline: phase === 'WAITING' || phase === 'ALIGN',
-    countdown: phase === 'CALIBRATE' && !raising ? Math.max(1, Math.ceil((1 - progress) * CALIB_SECONDS)) : null
+    countdown: phase === 'CALIBRATE' && !raising ? Math.max(1, Math.ceil((1 - progress) * stillMs / 1000)) : null
   };
 }
 
@@ -88,8 +92,8 @@ export function createSetupOverlay(rootEl) {
   }
 
   return {
-    render(setupState, tMs) {
-      const v = viewFor(setupState);
+    render(setupState, tMs, stillMs) {
+      const v = viewFor(setupState, stillMs);
       const key = v.phase + '|' + v.text + '|' + v.sub + '|' + v.stepLabel + '|' + v.arrow;
       if (key !== lastKey) {
         const enteringLive = v.phase === 'LIVE' && lastPhase !== null && lastPhase !== 'LIVE';

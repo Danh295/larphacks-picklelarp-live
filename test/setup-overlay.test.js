@@ -11,8 +11,20 @@ test('viewFor: per-phase defaults and flags', () => {
   assert.ok(!a.ring && !a.figure);
 });
 
-test('viewFor: message overrides default text', () => {
-  assert.equal(viewFor({ phase: 'READY', progress: 0, message: 'ARMS HIGHER' }).text, 'ARMS HIGHER');
+test('viewFor: big text is the short overlay copy, not the long setup.js message', () => {
+  assert.equal(viewFor({ phase: 'READY', progress: 0, message: 'Raise both arms into a T-pose' }).text, 'STRIKE A T-POSE');
+  assert.equal(viewFor({ phase: 'WAITING', message: 'Step back so your whole body is in frame' }).text, 'STEP INTO FRAME');
+  assert.equal(viewFor({ phase: 'CALIBRATE', stage: 'raise', message: 'Raise your paddle hand above your head' }).text, 'RAISE YOUR PADDLE HAND');
+});
+
+test('viewFor: an unknown phase falls back to the message', () => {
+  assert.equal(viewFor({ phase: 'WEIRD', message: 'HELLO' }).text, 'HELLO');
+});
+
+test('viewFor: countdown follows the live hold time', () => {
+  assert.equal(viewFor({ phase: 'CALIBRATE', progress: 0 }, 4000).countdown, 4);
+  assert.equal(viewFor({ phase: 'CALIBRATE', progress: 0.76 }, 4000).countdown, 1);
+  assert.equal(viewFor({ phase: 'CALIBRATE', progress: 0 }, 1000).countdown, 1);
 });
 
 test('viewFor: calibrate countdown stays within 1..2', () => {

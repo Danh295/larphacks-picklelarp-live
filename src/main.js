@@ -66,16 +66,28 @@ function process(raw, now) {
   const P = smoother.update(raw, now);
   pose = P;
   setupState = setup.update(P, now);
-  overlay.render(setupState, now);
-  const h = help.update({ phase: setupState.phase, tMs: now });
-  $('help').classList.toggle('show', h.showCard);
-  if (h.nudge) { hint(NUDGE_TEXT); nudgeT = now + 5000; }
-  else if (nudgeT && now > nudgeT) { hint(''); nudgeT = 0; }
   if (!P || setupState.phase !== 'LIVE') return;
   const ev = swingDet.update(P, setupState.calib, now);
-  if (ev) { onSwing(ev); help.swung(now); hint(''); nudgeT = 0; }
+  if (ev) { onSwing(ev); swingFeedback(now); }
   jumbotron(P, now);
 }
+
+// Cosmetic UI (setup overlay, help card, nudge). Runs every animation frame, independent of
+// detection, and is isolated so a UI error can never stop swing/jumbotron detection.
+let uiWarned = false;
+function updateUi(now) {
+  try {
+    overlay.render(setupState, now, SETUP_TUNE.STILL_MS);
+    const h = help.update({ phase: setupState.phase, tMs: now });
+    $('help').classList.toggle('show', h.showCard);
+    if (h.nudge) { hint(NUDGE_TEXT); nudgeT = now + 5000; }
+    else if (nudgeT && now > nudgeT) { hint(''); nudgeT = 0; }
+  } catch (e) {
+    if (!uiWarned) { uiWarned = true; console.warn('ui', e); }
+  }
+}
+// A swing happened (real or test key): reset the idle-nudge clock and clear any nudge hint.
+function swingFeedback(now) { help.swung(now); hint(''); nudgeT = 0; }
 
 // ---------- drawing ----------
 const BONES = [[11, 12], [11, 13], [13, 15], [12, 14], [14, 16], [11, 23], [12, 24], [23, 24], [23, 25], [25, 27], [24, 26], [26, 28], [27, 29], [27, 31], [28, 30], [28, 32]];
@@ -121,6 +133,7 @@ function loop() {
     ctx.fillText(started ? 'NO CAMERA · use test keys S / J / U' : '', W / 2, H / 2);
     ctx.textAlign = 'start';
   }
+  updateUi(now);
   const dbg = $('swingdbg');
   dbg.style.display = debug ? 'block' : 'none';
   if (debug) dbg.textContent = formatSwingDebug(swingDet.debug, SWING_TUNE, setupState.phase);
@@ -136,7 +149,7 @@ addEventListener('keydown', e => {
   if (k === 's') {
     onSwing({ type: 'swing', realMph: 3 + Math.random() * 5, power: 0.6,
       wrist: { x: W * 0.55, y: H * 0.55 }, side: 'r', t: performance.now() });
-    help.swung(performance.now());
+    swingFeedback(performance.now());
   }
   if (e.key === '?') help.toggle();
   if (k === 'd') debug = !debug;
@@ -179,6 +192,9 @@ $('start').onclick = async () => {
       console.error(e);
     }
   }
+  // No working pose pipeline (camera denied or model failed): test-key mode. Skip setup so the
+  // overlay doesn't cover the screen and the help card, sting and keys still work.
+  if (!landmarker) setupState = setup.skip(performance.now());
   started = true;
   $('intro').style.display = 'none';
   updateHud();
