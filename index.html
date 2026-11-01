@@ -40,7 +40,7 @@ canvas{width:100%;height:100%;display:block;cursor:crosshair}
 #setup{position:absolute;inset:0;pointer-events:none;opacity:0;transition:opacity .3s}
 #setup.on,#setup.sting{opacity:1}
 #setup .so-vignette{position:absolute;inset:0;background:radial-gradient(ellipse at center,rgba(5,7,15,.05) 35%,rgba(5,7,15,.7) 100%)}
-#setup .so-center{position:absolute;inset:0 0 120px 0;display:flex;align-items:center;justify-content:center}
+#setup .so-center{position:absolute;inset:0 0 172px 0;display:flex;align-items:center;justify-content:center}
 #setup .so-ringwrap{position:relative;width:min(48vh,360px);aspect-ratio:1}
 #setup .so-ring,#setup .so-figure{position:absolute;inset:0;width:100%;height:100%}
 #setup .so-track{fill:none;stroke:rgba(10,16,32,.7);stroke-width:12}
@@ -55,7 +55,21 @@ canvas{width:100%;height:100%;display:block;cursor:crosshair}
 #setup[data-phase=LIVE] .so-bar,#setup[data-phase=LIVE] .so-center,#setup[data-phase=LIVE] .so-vignette{display:none}
 #setup.sting .so-sting{display:flex}
 #setup .so-sting.go{animation:pop 1.8s ease-out forwards}
-#status{font:600 13px system-ui,sans-serif;color:#9fb0d0;min-height:18px}
+#setup .so-outline{position:absolute;height:92%;aspect-ratio:1/2;fill:none;stroke:rgba(212,255,31,.85);stroke-width:4;stroke-dasharray:10 9;stroke-linecap:round;filter:drop-shadow(0 0 6px rgba(0,0,0,.7))}
+#setup .so-outline text{fill:var(--lime);stroke:none;font:700 15px system-ui,sans-serif;letter-spacing:.12em}
+#setup .so-outline .so-floor{stroke-dasharray:none;stroke-width:6}
+#setup .so-arrow{position:absolute;inset:0;width:100%;height:100%;fill:none;stroke:var(--lime);stroke-width:16;stroke-linecap:round;stroke-linejoin:round;animation:bob 1s ease-in-out infinite}
+@keyframes bob{50%{transform:translateY(-14px)}}
+#setup .so-step{display:inline-block;background:var(--ink);color:var(--lime);padding:4px 24px;font:700 clamp(12px,2.2vh,18px) system-ui,sans-serif;letter-spacing:.2em}
+#how{list-style:none;margin:6px 0 0;padding:0;display:grid;gap:10px;max-width:780px;width:100%;text-align:left}
+#how li{display:flex;gap:16px;align-items:center;background:rgba(10,16,32,.75);border-left:5px solid var(--lime);padding:10px 18px;font:600 clamp(15px,2.2vw,22px) system-ui,sans-serif;color:#e6ecff}
+#how b{font:400 clamp(30px,4vw,46px) Impact,sans-serif;color:var(--lime);min-width:1.1em}
+#help{position:absolute;right:12px;bottom:52px;width:min(340px,42%);background:rgba(10,16,32,.9);border-left:5px solid var(--lime);padding:10px 14px;font:600 clamp(11px,1.9vh,16px)/1.4 system-ui,sans-serif;display:none;pointer-events:none}
+#help.show{display:block}
+#help b{font:400 clamp(16px,3vh,24px) Impact,sans-serif;color:var(--lime);display:block;letter-spacing:.04em}
+#help i{font-style:normal;color:var(--lime)}
+#help small{display:block;margin-top:4px;color:#6f7fa3}
+#status{font:600 16px system-ui,sans-serif;color:#d4ff1f;min-height:22px}
 #keys{font:12px system-ui,sans-serif;color:#6f7fa3}
 </style>
 </head>
@@ -63,9 +77,14 @@ canvas{width:100%;height:100%;display:block;cursor:crosshair}
 <div id="intro">
   <h1>PICKLE<em>LARP</em><br>LIVE</h1>
   <p>You don't need to be good at pickleball. You just need to look like it. Webcam only. No ball required.</p>
+  <ol id="how">
+    <li><b>1</b>Stand 3 m back so your whole body is in frame, feet too</li>
+    <li><b>2</b>Strike a T-pose and hold it, then raise the hand you swing with</li>
+    <li><b>3</b>Swing: arm out wide, then whip it across. Both arms up = jumbotron</li>
+  </ol>
   <button id="start">GO LIVE</button>
   <div id="status"></div>
-  <div id="keys">Stand back so your whole body is in frame, feet too, then strike a T-pose. Test keys: S swing · J jumbotron · U sad clap · L skip to LIVE · D debug · F fullscreen</div>
+  <div id="keys">Keys: S swing · J jumbotron · U sad clap · L skip to LIVE · D debug · F fullscreen</div>
 </div>
 
 <div id="bar">
@@ -84,6 +103,11 @@ canvas{width:100%;height:100%;display:block;cursor:crosshair}
   <div id="lower"><div class="a" id="lowA">YOU · WORLD NO. 1 (SELF-REPORTED)</div><div class="b" id="lowB">147 mph</div></div>
   <div id="big"></div>
   <div id="setup"></div>
+  <div id="help"><b>HOW TO PLAY</b>
+    <div><i>SWING</i> arm out wide to the side, then whip it across your body</div>
+    <div><i>BOTH ARMS UP</i> jumbotron</div>
+    <div><i>ONE ARM UP</i> sad clap</div>
+    <small>press ? to hide</small></div>
   <div id="ticker"><div id="tickTxt"></div></div>
 </div>
 

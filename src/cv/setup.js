@@ -52,7 +52,10 @@ export function createSetup(tune = SETUP_TUNE) {
   const out = () => ({
     phase, progress,
     message: phase === 'CALIBRATE' ? (stage === 'still' ? MSG.STILL : MSG.RAISE) : MSG[phase],
-    calib: phase === 'LIVE' ? calib : null
+    calib: phase === 'LIVE' ? calib : null,
+    // Additive, optional: which CALIBRATE step this is ('still' | 'raise'), null in every other phase.
+    // `progress` restarts for each step, so UIs need this to avoid showing a stray countdown.
+    stage: phase === 'CALIBRATE' ? stage : null
   });
   const clamp01 = x => Math.max(0, Math.min(1, x));
 

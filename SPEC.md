@@ -46,6 +46,7 @@ Do not change these without telling the other track.
 - Landmarks are display-space (mirrored) arrays of 33 `{x, y, v}` (pixels, visibility 0..1).
 - `setup.update(landmarks|null, tMs)` returns
   `{ phase: 'WAITING'|'ALIGN'|'READY'|'CALIBRATE'|'LIVE', progress: 0..1, message: string, calib: { shoulderW, torso, armLen, dominant: 'l'|'r' } | null }`.
+- Optional, additive: `setup.update()` also returns `stage: 'still' | 'raise' | null`. During CALIBRATE it says which of the two steps (hold still 2 s, then raise the paddle hand) is running, because `progress` restarts for each; it is `null` in every other phase. UIs must tolerate it being absent.
 - `calib` values (`shoulderW`, `torso`, `armLen`) are display-space pixels, measured on the same frame as the landmarks. `DEFAULT_CALIB` is a pixel estimate for 1280x720.
 - `swing.update(landmarks, calib, tMs)` returns `null` or
   `{ type: 'swing', realMph, power: 0..1, wrist: {x, y}, side: 'l'|'r', t }`.

@@ -24,7 +24,8 @@ export function createSetupStub() {
           const raise = s.phase === 'CALIBRATE' && progress > 0.8;
           const message = raise ? 'Raise your paddle hand above your head' : '';
           const p = raise ? (progress - 0.8) / 0.2 : s.phase === 'CALIBRATE' ? progress / 0.8 : progress;
-          return { phase: s.phase, progress: p, message, calib: s.phase === 'LIVE' ? DEFAULT_CALIB : null };
+          const stage = s.phase === 'CALIBRATE' ? (raise ? 'raise' : 'still') : null;
+          return { phase: s.phase, progress: p, message, calib: s.phase === 'LIVE' ? DEFAULT_CALIB : null, stage };
         }
         t -= s.ms;
       }

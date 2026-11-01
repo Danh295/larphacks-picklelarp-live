@@ -264,3 +264,19 @@ test('progress is always within 0..1 and thresholds are exported', () => {
   assert.equal(SETUP_TUNE.TPOSE_MS, 1500);
   assert.equal(SETUP_TUNE.LOST_MS, 3000);
 });
+
+test('the result carries stage: "still" then "raise" during CALIBRATE, and null in every other phase', () => {
+  const s = createSetup();
+  assert.equal(s.update(null, 0).stage, null);
+  const a = toAlign(s);
+  assert.equal(a.r.stage, null);
+  const c = toCalibrate(s);
+  assert.equal(c.r.phase, 'CALIBRATE');
+  assert.equal(c.r.stage, 'still');
+  const still = run(s, () => pose({ tpose: true }), next(c.t), 2100);
+  assert.equal(still.r.phase, 'CALIBRATE');
+  assert.equal(still.r.stage, 'raise');
+  const live = run(s, () => pose({ tpose: true, raise: 'r' }), next(still.t), 700);
+  assert.equal(live.r.phase, 'LIVE');
+  assert.equal(live.r.stage, null);
+});

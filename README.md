@@ -40,6 +40,8 @@ Open http://localhost:8000, click **GO LIVE**, allow the camera.
 ## Setup tips
 
 - Put the laptop 3 to 4 m away with your whole body, feet included, in frame. Good front lighting helps.
+- The app walks you through setup on screen (4 steps, shown as STEP 1 OF 4 and so on). Once LIVE, a HOW TO PLAY card lists the moves; press `?` to hide or show it. If you go 8 s without a swing it nudges you.
+- A swing is: arm out wide to the side, then whip it across your body. Both arms up = jumbotron, one arm up = sad clap.
 - No camera or no body? Test keys: `S` swing, `J` jumbotron, `U` sad clap, `L` skip setup to LIVE, `D` debug skeleton (raw red vs smoothed lime).
 
 ## Notes and limits
