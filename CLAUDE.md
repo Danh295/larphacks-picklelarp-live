@@ -26,11 +26,11 @@ Per-frame pipeline, wired in `src/main.js` (`loop()` -> `process()`):
 `detect()` (`cv/pose.js`, returns mirrored display-space pixel landmarks `{x,y,v}`) -> `LandmarkSmoother` (`cv/filter.js`, One Euro) -> `setup.update()` (`cv/setup.js`) -> **only if `phase === 'LIVE'`**: `swing.update()` (`cv/swing.js`) and the inline `jumbotron()` -> `fx/effects.js` (`onSwing`, `boom`, `sad`) -> `fx/audio.js`.
 
 - `src/cv/*` are pure, DOM-free modules driven by explicit timestamps, so they are unit-tested in Node with synthetic landmark sequences. Keep them DOM-free and keep `update()` signatures stable.
-- `cv/swing.js` is the phase-gated state machine (CV-4) and `fx/ball.js` the fixed broadcast arc (CV-5). `cv/setup.js` is still a stub (always LIVE with `DEFAULT_CALIB`) until CV-6 lands.
+- `cv/swing.js` is the phase-gated state machine (CV-4) and `fx/ball.js` the fixed broadcast arc (CV-5). `cv/setup.js` is the setup state machine (CV-6); its calib values are display pixels and its thresholds (`SETUP_TUNE`) are untuned on a real camera.
 - The filter works in normalized units (x/W, y/H), so its constants are resolution-independent and differ from the numbers in SPEC.md (`BETA` is 8 in code vs 0.02 in the spec). Tune live from the console via `window.PLARP_FILTER`. The `D` key shows raw (red) vs smoothed (lime) joints.
 - All MediaPipe assets live in `vendor/mediapipe/` (pinned tasks-vision 0.10.35, full model) so the app works offline; never reintroduce a CDN. Any server must serve `.wasm` as `application/wasm`.
 - `src/package.json` and `test/package.json` exist only to set `"type":"module"`.
-- Test keys that must keep working: `S` swing, `J` jumbotron, `U` sad clap, `D` debug skeleton (`L` skip-to-LIVE is in the contract but not yet implemented).
+- Test keys that must keep working: `S` swing, `J` jumbotron, `U` sad clap, `D` debug skeleton, `L` skip to LIVE with `DEFAULT_CALIB`.
 
 ## Workflow
 
