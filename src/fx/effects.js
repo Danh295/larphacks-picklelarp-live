@@ -86,7 +86,7 @@ export function onSwing(ev) {
   state.dupr = Math.min(9.99, state.dupr + 0.3 + Math.random() * 0.45);
   updateHud();
 
-  balls.push(launchBall(ev.wrist, W, H)); // fixed arc; the swing only triggers it
+  balls.push(launchBall(ev.wrist, ev.launch, W, H)); // leaves the hand the way the arm moved (ball.js clamps it)
 
   const msg = state.honest ? `${shown.toFixed(1)} mph (honest)` : `${Math.round(shown)} mph`;
   const tag = state.honest ? 'Respectable.' : (shown >= 150 ? 'WORLD RECORD' : 'FASTEST EVER');

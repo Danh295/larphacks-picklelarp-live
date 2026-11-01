@@ -66,16 +66,46 @@ test('a real forehand fires exactly once, on the dominant side', () => {
   assert.ok(typeof ev[0].wrist.x === 'number' && typeof ev[0].wrist.y === 'number');
 });
 
-test('the event reports where the wrist is when it fires, so the ball spawns on the hand', () => {
+// frame index where the forward ramp (BACK -> FRONT) ends in forehand(): 10 hold + 8 ramp + 6 hold + 8 ramp
+const FORWARD_END = 10 + 8 + 6 + 8;
+
+test('fires at contact: before the follow-through, with the wrist where the hand was at the speed peak', () => {
   const det = createSwing();
   const frames = forehand();
-  let checked = 0;
+  const wrists = [];
+  let at = -1, ev = null;
   frames.forEach((f, i) => {
     const P = person(f);
-    const ev = det.update(P, CALIB, 1000 + i * MS);
-    if (ev) { assert.equal(ev.wrist.x, P[16].x); assert.equal(ev.wrist.y, P[16].y); checked++; }
+    wrists.push({ x: P[16].x, y: P[16].y });
+    const e = det.update(P, CALIB, 1000 + i * MS);
+    if (e) { ev = e; at = i; }
   });
-  assert.equal(checked, 1);
+  assert.ok(ev, 'a swing fired');
+  assert.ok(at <= FORWARD_END + 2, `fired at frame ${at}, should be by about the end of the forward ramp (${FORWARD_END})`);
+  const recent = wrists.slice(Math.max(0, at - 8), at + 1);
+  assert.ok(recent.some(w => w.x === ev.wrist.x && w.y === ev.wrist.y), 'the event wrist is the hand position from a recent peak frame, not an arbitrary later one');
+});
+
+test('the event carries the swing velocity: a right-to-left swing launches leftward, a left-to-right one rightward', () => {
+  const right = run(forehand())[0];
+  assert.ok(right.launch.vx < -300, `forehand moves right to left on screen, vx=${right.launch.vx}`);
+  assert.ok(Number.isFinite(right.launch.vy));
+  const mirrored = (() => {
+    const det = createSwing(); let out = null;
+    forehand().forEach((f, i) => {
+      const e = det.update(person({ rw: REST_R, lw: [1200 - f.rw[0], f.rw[1]] }), { ...CALIB, dominant: 'l' }, 1000 + i * MS);
+      if (e) out = e;
+    });
+    return out;
+  })();
+  assert.ok(mirrored.launch.vx > 300, `mirrored swing moves left to right, vx=${mirrored.launch.vx}`);
+});
+
+test('the event carries coaching metrics', () => {
+  const m = run(forehand())[0].metrics;
+  for (const k of ['peak', 'disp', 'durationMs', 'angleDeg', 'wristRise']) assert.ok(Number.isFinite(m[k]), `${k} is a number`);
+  assert.ok(m.elbow === null || Number.isFinite(m.elbow));
+  assert.ok(m.peak >= 3.5 && m.disp >= 0.5 && m.durationMs > 0);
 });
 
 test('the mirror-image forehand fires for a left-handed player', () => {
@@ -179,4 +209,24 @@ test('the debug readout explains why a swing was rejected and counts fires', () 
   forehand().forEach((f, i) => det.update(person(f), CALIB, 5000 + i * MS));
   assert.equal(det.debug.fired, 1);
   assert.match(det.debug.reason, /SWING!|cooldown/, 'after a fire the readout says SWING! then cooldown');
+});
+
+// A realistic forward swing: speed rises, peaks mid-swing, then falls (ease in-out), followed by a slow follow-through.
+function bellSwing() {
+  const N = 14;
+  const ease = Array.from({ length: N }, (_, i) => {
+    const t = (i + 1) / N, e = 0.5 - 0.5 * Math.cos(Math.PI * t);
+    return { rw: [lerp(BACK[0], FRONT[0], e), lerp(BACK[1], FRONT[1], e)], lw: REST_L };
+  });
+  const tail = ramp(FRONT, [FRONT[0] - 25, FRONT[1] + 10], 20);
+  return { frames: [...hold(REST_R, 10), ...ramp(REST_R, BACK, 14), ...hold(BACK, 8), ...ease, ...tail], peakIdx: 10 + 14 + 8 + N / 2 };
+}
+
+test('fires within a few frames of the speed peak (contact), not after the swing has died away', () => {
+  const { frames, peakIdx } = bellSwing();
+  const det = createSwing();
+  let at = -1;
+  frames.forEach((f, i) => { if (det.update(person(f), CALIB, 1000 + i * MS)) at = i; });
+  assert.ok(at >= 0, 'fired');
+  assert.ok(at - peakIdx <= 4, `fired ${at - peakIdx} frames after the speed peak (should be <= 4 frames, about 130 ms)`);
 });
