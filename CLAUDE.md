@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## What this is
 
-PickleLARP Live: a webcam pose-tracking app (MediaPipe Pose Landmarker) that turns a swing at air into a fake pro broadcast (ball arc, inflated radar speed, commentator, jumbotron). Hackathon project for two devs split into `track-cv` and `track-app` (GitHub issues #1-#13, labeled). `SPEC.md` is the source of truth for tickets, decisions and the **"Contract between tracks"** section (landmark format, `setup.update()` / `swing.update()` return shapes, test keys). Do not change that contract without telling the other track. `README.md` and `PLAN.md` still describe v1 (Kitchen Police, tennis) until APP-4 lands; trust SPEC.md over them.
+PickleLARP Live: a webcam pose-tracking app (MediaPipe Pose Landmarker) that turns a swing at air into a fake pro broadcast (ball arc, inflated radar speed, commentator, jumbotron). Hackathon project for two devs split into `track-cv` and `track-app` (GitHub issues #1-#13, labeled). `SPEC.md` is the source of truth for tickets, decisions and the **"Contract between tracks"** section (landmark format, `setup.update()` / `swing.update()` return shapes, test keys). Do not change that contract without telling the other track.
 
 ## Commands
 
