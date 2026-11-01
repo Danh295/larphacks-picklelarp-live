@@ -124,3 +124,14 @@ test('a clip with no metrics is not marked bad and has no tips', () => {
   assert.equal(rec.clips()[0].bad, false);
   assert.deepEqual(rec.clips()[0].tips, []);
 });
+
+test('a pending clip still freezes on time when the pose is lost after the swing', () => {
+  const rec = createClipRecorder();
+  for (let i = 0; i < 20; i++) rec.push(1000 + i * MS, person([740, 520]));
+  const t = 1000 + 19 * MS;
+  rec.swung({ type: 'swing', t, side: 'r', realMph: 12 });
+  rec.push(t + 100, null);               // pose lost, too early to freeze
+  assert.equal(rec.clips().length, 0);
+  rec.push(t + CLIP_TUNE.POST_MS + 50, null); // still no pose, but time is up
+  assert.equal(rec.clips().length, 1);
+});

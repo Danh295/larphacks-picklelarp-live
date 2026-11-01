@@ -69,31 +69,32 @@ function process(raw, now) {
   rawPose = raw;
   const P = smoother.update(raw, now);
   pose = P;
-  if (P) clips.push(now, P);
+  clips.push(now, P);
   setupState = setup.update(P, now);
   if (!P || setupState.phase !== 'LIVE') return;
   const ev = swingDet.update(P, setupState.calib, now);
-  if (ev) { onSwing(ev); swingFeedback(now); clips.swung(ev); }
+  if (ev) { clips.swung(ev); onSwing(ev); swingFeedback(now); }
   jumbotron(P, now);
 }
 
 // Cosmetic UI (setup overlay, help card, nudge). Runs every animation frame, independent of
 // detection, and is isolated so a UI error can never stop swing/jumbotron detection.
-let uiWarned = false;
+const uiWarned = new Set();
+function guarded(name, fn) { // each UI step is isolated: one failing step must not disable the others
+  try { fn(); } catch (e) { if (!uiWarned.has(name)) { uiWarned.add(name); console.warn('ui:' + name, e); } }
+}
 function updateUi(now) {
-  try {
-    overlay.render(setupState, now, SETUP_TUNE.STILL_MS);
-    replay.tick(now);
+  guarded('overlay', () => overlay.render(setupState, now, SETUP_TUNE.STILL_MS));
+  guarded('replay', () => replay.tick(now));
+  guarded('help', () => {
     const h = help.update({ phase: setupState.phase, tMs: now });
     $('help').classList.toggle('show', h.showCard);
     if (h.nudge) { hint(NUDGE_TEXT); nudgeT = now + 5000; }
     else if (nudgeT && now > nudgeT) { hint(''); nudgeT = 0; }
-  } catch (e) {
-    if (!uiWarned) { uiWarned = true; console.warn('ui', e); }
-  }
+  });
 }
 // A swing happened (real or test key): reset the idle-nudge clock and clear any nudge hint.
-function swingFeedback(now) { help.swung(now); hint(''); nudgeT = 0; }
+function swingFeedback(now) { help.swung(now); if (nudgeT) hint(''); nudgeT = 0; }
 
 // ---------- drawing ----------
 const BONES = [[11, 12], [11, 13], [13, 15], [12, 14], [14, 16], [11, 23], [12, 24], [23, 24], [23, 25], [25, 27], [24, 26], [26, 28], [27, 29], [27, 31], [28, 30], [28, 32]];
@@ -153,7 +154,7 @@ addEventListener('keydown', e => {
   if (e.target.tagName === 'INPUT' || !started) return;
   if (replay.key(e)) { e.preventDefault(); return; }
   const k = e.key.toLowerCase();
-  if (k === 'r' && !e.metaKey && !e.ctrlKey && !e.altKey) replay.toggle();
+  if (k === 'r' && !e.repeat && !e.metaKey && !e.ctrlKey && !e.altKey) replay.toggle();
   if (k === 's') {
     onSwing({ type: 'swing', realMph: 3 + Math.random() * 5, power: 0.6,
       wrist: { x: W * (0.3 + Math.random() * 0.4), y: H * (0.35 + Math.random() * 0.3) }, side: 'r', t: performance.now(),

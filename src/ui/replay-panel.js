@@ -24,7 +24,7 @@ export function createReplayPanel(rootEl, recorder) {
   const cvs = q('.rp-cv'), g = cvs.getContext('2d');
   const els = { which: q('.rp-which'), chunks: q('.rp-chunks'), advice: q('.rp-advice'), play: q('[data-a=play]') };
   const cache = new WeakMap();
-  let open = false, idx = -1, frame = 0, playing = true, lastTick = 0, lastCount = 0, active = 'contact';
+  let open = false, idx = -1, frame = 0, playing = true, lastTick = 0, lastNewest = null, active = 'contact';
 
   const clips = () => recorder.clips();
   const clip = () => clips()[idx] || null;
@@ -110,7 +110,7 @@ export function createReplayPanel(rootEl, recorder) {
     isOpen: () => open,
     toggle() {
       open = !open; rootEl.classList.toggle('show', open);
-      if (open) { select(clips().length - 1); draw(); }
+      if (open) { lastNewest = clips()[clips().length - 1] || null; select(clips().length - 1); draw(); }
     },
     act(a) {
       const c = clip();
@@ -122,7 +122,7 @@ export function createReplayPanel(rootEl, recorder) {
     },
     // Returns true if the key was used while the panel is open.
     key(e) {
-      if (!open) return false;
+      if (!open || e.metaKey || e.ctrlKey || e.altKey) return false;
       const k = e.key;
       const map = { ArrowLeft: 'step-', ArrowRight: 'step+', ArrowUp: 'prev', ArrowDown: 'next' };
       if (map[k]) api.act(map[k]);
@@ -134,8 +134,9 @@ export function createReplayPanel(rootEl, recorder) {
     },
     // Called every animation frame: plays the clip in slow motion and picks up newly frozen clips.
     tick(nowMs) {
-      if (!open) { lastCount = clips().length; return; }
-      if (clips().length !== lastCount) { lastCount = clips().length; select(clips().length - 1); draw(); return; }
+      const newest = clips()[clips().length - 1] || null;   // identity, not length: the list is capped at KEEP
+      if (!open) { lastNewest = newest; return; }
+      if (newest !== lastNewest) { lastNewest = newest; select(clips().length - 1); draw(); return; }
       const c = clip(); if (!c || !playing) { lastTick = 0; return; }
       if (!lastTick) { lastTick = nowMs; return; }
       const next = Math.min(c.frames.length - 1, frame + 1);

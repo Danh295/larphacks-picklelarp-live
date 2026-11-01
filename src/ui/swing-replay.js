@@ -36,9 +36,11 @@ export function createClipRecorder(tune = CLIP_TUNE) {
   return {
     // P: smoothed 33 landmarks (display pixels). Call every processed frame, before swing detection.
     push(t, P) {
-      if (!P) return;
-      buf.push({ t, P });
-      while (buf.length && t - buf[0].t > tune.BUF_MS) buf.shift();
+      if (P) {
+        buf.push({ t, P });
+        while (buf.length && t - buf[0].t > tune.BUF_MS) buf.shift();
+      }
+      // freeze on time even when the pose is lost (the player stepped out after swinging)
       if (pending && t >= pending.t + tune.POST_MS) finalize();
     },
     // ev: the swing event ({ t, side, realMph, metrics }). The clip is frozen POST_MS later.
@@ -64,7 +66,8 @@ function speeds(track) {
   const raw = track.map((p, i) => {
     if (i === 0) return 0;
     const dt = (p.t - track[i - 1].t) / 1000;
-    return dt > 0 ? Math.hypot(p.x - track[i - 1].x, p.y - track[i - 1].y) / dt : 0;
+    const v = dt > 0 ? Math.hypot(p.x - track[i - 1].x, p.y - track[i - 1].y) / dt : 0;
+    return Number.isFinite(v) ? v : 0;
   });
   return raw.map((_, i) => {
     const a = raw[Math.max(0, i - 1)], b = raw[i], c = raw[Math.min(raw.length - 1, i + 1)];
@@ -123,7 +126,7 @@ export function analyzeClip(clip) {
   for (let i = 0; i < n; i++) {
     if (clip.frames[i].t > clip.t - 700 && clip.frames[i].t <= clip.t && (c < 0 || sp[i] > sp[c])) c = i;
   }
-  if (c < 0) c = sp.indexOf(Math.max(...sp));
+  if (c < 0) c = Math.max(0, sp.indexOf(Math.max(...sp)));
   const peak = sp[c] || 1;
 
   let fs = c;                                   // forward swing starts where the burst began
