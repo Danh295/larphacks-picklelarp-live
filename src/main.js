@@ -4,6 +4,8 @@ import { createSetup, SETUP_TUNE } from './cv/setup.js';
 import { createSetupStub } from './ui/setup-stub.js';
 import { createSetupOverlay } from './ui/setup-overlay.js';
 import { createLiveHelp, NUDGE_TEXT } from './ui/live-help.js';
+import { createClipRecorder } from './ui/swing-replay.js';
+import { createReplayPanel } from './ui/replay-panel.js';
 import { formatSwingDebug } from './ui/swing-debug.js';
 import { LandmarkSmoother, TUNE } from './cv/filter.js';
 import { L, torsoLen } from './cv/geometry.js';
@@ -45,6 +47,8 @@ const swingDet = createSwing();
 const setup = new URLSearchParams(location.search).get('stub') === 'setup' ? createSetupStub() : createSetup();
 const overlay = createSetupOverlay($('setup'));
 const help = createLiveHelp();
+const clips = createClipRecorder();
+const replay = createReplayPanel($('replay'), clips);
 let nudgeT = 0;
 let setupState = { phase: 'WAITING', progress: 0, message: '', calib: null };
 window.PLARP_SETUP = SETUP_TUNE; // live tuning from the console, e.g. PLARP_SETUP.TPOSE_MS = 1000
@@ -65,10 +69,11 @@ function process(raw, now) {
   rawPose = raw;
   const P = smoother.update(raw, now);
   pose = P;
+  if (P) clips.push(now, P);
   setupState = setup.update(P, now);
   if (!P || setupState.phase !== 'LIVE') return;
   const ev = swingDet.update(P, setupState.calib, now);
-  if (ev) { onSwing(ev); swingFeedback(now); }
+  if (ev) { onSwing(ev); swingFeedback(now); clips.swung(ev); }
   jumbotron(P, now);
 }
 
@@ -78,6 +83,7 @@ let uiWarned = false;
 function updateUi(now) {
   try {
     overlay.render(setupState, now, SETUP_TUNE.STILL_MS);
+    replay.tick(now);
     const h = help.update({ phase: setupState.phase, tMs: now });
     $('help').classList.toggle('show', h.showCard);
     if (h.nudge) { hint(NUDGE_TEXT); nudgeT = now + 5000; }
@@ -145,7 +151,9 @@ function loop() {
 // ---------- controls ----------
 addEventListener('keydown', e => {
   if (e.target.tagName === 'INPUT' || !started) return;
+  if (replay.key(e)) { e.preventDefault(); return; }
   const k = e.key.toLowerCase();
+  if (k === 'r' && !e.metaKey && !e.ctrlKey && !e.altKey) replay.toggle();
   if (k === 's') {
     onSwing({ type: 'swing', realMph: 3 + Math.random() * 5, power: 0.6,
       wrist: { x: W * (0.3 + Math.random() * 0.4), y: H * (0.35 + Math.random() * 0.3) }, side: 'r', t: performance.now(),
@@ -166,6 +174,7 @@ $('btnHonest').onclick = () => {
   $('btnHonest').textContent = 'Honest mode: ' + (state.honest ? 'on' : 'off');
   $('btnHonest').classList.toggle('on', state.honest);
 };
+$('btnReplay').onclick = () => replay.toggle();
 $('btnSkel').onclick = () => { showSkel = !showSkel; $('btnSkel').classList.toggle('on', showSkel); };
 
 // ---------- start ----------

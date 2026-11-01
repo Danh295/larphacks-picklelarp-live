@@ -21,6 +21,17 @@ canvas{width:100%;height:100%;display:block;cursor:crosshair}
 #lower .b{background:rgba(10,16,32,.92);padding:8px 18px;font-size:34px;border-bottom:4px solid var(--lime)}
 #lower .c{background:rgba(10,16,32,.92);color:#cfe0ff;padding:6px 18px 8px;font:600 clamp(13px,2.3vh,19px)/1.35 system-ui,sans-serif;max-width:min(620px,60vw);border-left:5px solid var(--lime)}
 #lower .c:empty{display:none}
+#replay{position:absolute;right:12px;top:64px;width:min(420px,46%);background:rgba(10,16,32,.94);border-left:5px solid var(--lime);padding:10px 12px;display:none;z-index:4;font:600 clamp(11px,1.9vh,15px)/1.4 system-ui,sans-serif}
+#replay.show{display:block}
+#replay .rp-head{font:400 clamp(16px,3vh,22px) Impact,sans-serif;color:var(--lime);letter-spacing:.04em;display:flex;gap:6px;align-items:baseline}
+#replay .rp-head span.rp-which{font:600 12px system-ui,sans-serif;color:#9fb0d0;flex:1}
+#replay .rp-close{cursor:pointer;border:1px solid #3a4a70;padding:0 7px}
+#replay canvas{width:100%;height:auto;display:block;margin:6px 0;background:#0a1020}
+#replay .rp-chunks,#replay .rp-ctl{display:flex;gap:4px;flex-wrap:wrap}
+#replay button{font:600 12px system-ui,sans-serif;background:rgba(20,30,56,.95);color:#fff;border:1px solid #3a4a70;border-bottom:4px solid #3a4a70;padding:5px 8px;cursor:pointer}
+#replay .rp-chunks button.on{background:var(--lime);color:var(--ink)}
+#replay .rp-advice{margin:6px 0;color:#fff;min-height:2.8em}
+#replay .rp-note{color:#6f7fa3;font-size:11px;margin-top:2px}
 #big{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;text-align:center;font-size:clamp(36px,9vw,120px);line-height:1;text-shadow:0 4px 0 #000,0 0 30px rgba(0,0,0,.8);pointer-events:none;opacity:0;padding:0 20px}
 #big.show{animation:pop 2.6s ease-out forwards}
 @keyframes pop{0%{opacity:0;transform:scale(.4) rotate(-4deg)}10%{opacity:1;transform:scale(1.08) rotate(-2deg)}85%{opacity:1}100%{opacity:0;transform:scale(1)}}
@@ -94,6 +105,7 @@ canvas{width:100%;height:100%;display:block;cursor:crosshair}
   <input id="name" placeholder="Your pro name" maxlength="24">
   <button id="btnHonest" title="Show the real, uninflated swing speed">Honest mode: off</button>
   <button id="btnSkel" class="on">Skeleton</button>
+  <button id="btnReplay" title="Replay the last swings (R)">Replay (R)</button>
 </div>
 
 <div id="stage">
@@ -107,6 +119,7 @@ canvas{width:100%;height:100%;display:block;cursor:crosshair}
   <div id="lower"><div class="a" id="lowA">YOU · WORLD NO. 1 (SELF-REPORTED)</div><div class="b" id="lowB">147 mph</div><div class="c" id="lowC"></div></div>
   <div id="big"></div>
   <div id="setup"></div>
+  <div id="replay"></div>
   <div id="help"><b>HOW TO PLAY</b>
     <div><i>SWING</i> arm out wide to the side, then whip it across your body</div>
     <div><i>BOTH ARMS UP</i> jumbotron</div>

@@ -30,7 +30,7 @@ Per-frame pipeline, wired in `src/main.js` (`loop()` -> `process()`):
 - The filter works in normalized units (x/W, y/H), so its constants are resolution-independent and differ from the numbers in SPEC.md (`BETA` is 8 in code vs 0.02 in the spec). Tune live from the console via `window.PLARP_FILTER`. The `D` key shows raw (red) vs smoothed (lime) joints.
 - All MediaPipe assets live in `vendor/mediapipe/` (pinned tasks-vision 0.10.35, full model) so the app works offline; never reintroduce a CDN. Any server must serve `.wasm` as `application/wasm`.
 - `src/package.json` and `test/package.json` exist only to set `"type":"module"`.
-- `setup.update()` also returns an optional `stage` ('still' | 'raise' | null) for the CALIBRATE sub-step; `src/ui/setup-overlay.js` (`viewFor` is pure and unit-tested) renders it, `src/ui/live-help.js` is the pure LIVE-phase card/nudge logic that `main.js` wires to `#help` and `hint()`. `?` toggles the help card.
+- `setup.update()` also returns an optional `stage` ('still' | 'raise' | null) for the CALIBRATE sub-step; `src/ui/setup-overlay.js` (`viewFor` is pure and unit-tested) renders it, `src/ui/live-help.js` is the pure LIVE-phase card/nudge logic that `main.js` wires to `#help` and `hint()`. `?` toggles the help card. `ui/swing-replay.js` (pure: clip recorder + `analyzeClip` chunks/advice, reusing `TIP_TUNE` from `cv/swing-tips.js`) and `ui/replay-panel.js` (DOM) implement the landmark-only swing replay; `R` toggles it.
 - Test keys that must keep working: `S` swing, `J` jumbotron, `U` sad clap, `D` debug skeleton, `L` skip to LIVE with `DEFAULT_CALIB`.
 
 ## Workflow
