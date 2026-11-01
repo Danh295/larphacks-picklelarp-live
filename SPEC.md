@@ -46,6 +46,7 @@ Do not change these without telling the other track.
 - Landmarks are display-space (mirrored) arrays of 33 `{x, y, v}` (pixels, visibility 0..1).
 - `setup.update(landmarks|null, tMs)` returns
   `{ phase: 'WAITING'|'ALIGN'|'READY'|'CALIBRATE'|'LIVE', progress: 0..1, message: string, calib: { shoulderW, torso, armLen, dominant: 'l'|'r' } | null }`.
+- `calib` values (`shoulderW`, `torso`, `armLen`) are display-space pixels, measured on the same frame as the landmarks. `DEFAULT_CALIB` is a pixel estimate for 1280x720.
 - `swing.update(landmarks, calib, tMs)` returns `null` or
   `{ type: 'swing', realMph, power: 0..1, wrist: {x, y}, side: 'l'|'r', t }`.
 - Swing and jumbotron detection run only when `phase === 'LIVE'`.
