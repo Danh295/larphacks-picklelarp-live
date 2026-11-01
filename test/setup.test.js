@@ -131,6 +131,20 @@ test('READY falls back to ALIGN when the body is no longer fully framed', () => 
   assert.equal(s.update(pose({ tpose: true, hide: [L.NOSE] }), next(a.t)).phase, 'ALIGN');
 });
 
+test('CALIBRATE falls back to ALIGN when the body is no longer fully framed', () => {
+  const s = createSetup();
+  const c = toCalibrate(s);
+  assert.equal(c.r.phase, 'CALIBRATE');
+  assert.equal(s.update(pose({ tpose: true, hide: [L.RSH] }), next(c.t)).phase, 'ALIGN');
+});
+
+test('ALIGN requires visible knees as well as hips above knees', () => {
+  const s = createSetup();
+  const a = run(s, pose({ hide: [L.LKNEE] }), 0, 2000);
+  assert.equal(a.r.phase, 'ALIGN');
+  assert.equal(a.r.progress, 0);
+});
+
 test('CALIBRATE averages shoulderW / torso / armLen (in pixels) over 2 s still', () => {
   const s = createSetup();
   const c = toCalibrate(s, () => pose({ tpose: true, k: 1.2 }));
@@ -223,7 +237,10 @@ test('a person re-arms the flow after the reset', () => {
 
 test('skip() jumps to LIVE with DEFAULT_CALIB and holds with no pose until a real person appears and leaves', () => {
   const s = createSetup();
-  s.skip(5000);
+  const skipped = s.skip(5000); // main.js assigns this return value to setupState on the L key
+  assert.equal(skipped.phase, 'LIVE');
+  assert.equal(skipped.progress, 1);
+  assert.deepEqual(skipped.calib, DEFAULT_CALIB);
   const r = s.update(null, 5033);
   assert.equal(r.phase, 'LIVE');
   assert.deepEqual(r.calib, DEFAULT_CALIB);

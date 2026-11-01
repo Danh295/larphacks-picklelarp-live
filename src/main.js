@@ -1,6 +1,6 @@
 import { loadPose, detect } from './cv/pose.js';
 import { createSwing, SWING_TUNE } from './cv/swing.js';
-import { createSetup, SETUP_TUNE, DEFAULT_CALIB } from './cv/setup.js';
+import { createSetup, SETUP_TUNE } from './cv/setup.js';
 import { LandmarkSmoother, TUNE } from './cv/filter.js';
 import { L, torsoLen } from './cv/geometry.js';
 import { initAudio, resumeAudio, warmVoices } from './fx/audio.js';
@@ -124,7 +124,7 @@ addEventListener('keydown', e => {
   }
   if (k === 'd') debug = !debug;
   if (k === 'f' && !e.repeat && !e.metaKey && !e.ctrlKey && !e.altKey && window.plarp) window.plarp.toggleFullscreen();
-  if (k === 'l') { setup.skip(performance.now()); setupState = { phase: 'LIVE', progress: 1, message: '', calib: DEFAULT_CALIB }; }
+  if (k === 'l') setupState = setup.skip(performance.now());
   if (k === 'j') boom();
   if (k === 'u') sad();
 });

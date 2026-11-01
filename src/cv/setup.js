@@ -67,9 +67,10 @@ export function createSetup(tune = SETUP_TUNE) {
 
   return {
     reset,
-    // Test key L. Stays LIVE through an empty room until a real person has appeared.
+    // Test key L. Returns the LIVE result. Stays LIVE through an empty room until a real person has appeared.
     skip(tMs) {
-      go('LIVE'); calib = DEFAULT_CALIB; progress = 1; forced = true; lastSeen = tMs == null ? null : tMs;
+      go('LIVE'); calib = DEFAULT_CALIB; progress = 1; forced = true; lastSeen = tMs ?? null;
+      return out();
     },
     // landmarks: 33 display-space {x,y,v} or null; tMs: ms
     update(P, tMs) {
@@ -85,7 +86,7 @@ export function createSetup(tune = SETUP_TUNE) {
 
       const vis = i => P[i].v >= tune.VIS;
       const ankles = vis(L.LANK) && vis(L.RANK);
-      const framed = ankles && [L.NOSE, L.LSH, L.RSH, L.LHIP, L.RHIP].every(vis) &&
+      const framed = ankles && [L.NOSE, L.LSH, L.RSH, L.LHIP, L.RHIP, L.LKNEE, L.RKNEE].every(vis) &&
         P[L.LHIP].y < P[L.LKNEE].y && P[L.RHIP].y < P[L.RKNEE].y;
 
       switch (phase) {
