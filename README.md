@@ -4,6 +4,18 @@ You don't need to be good at pickleball. You just need to look like it.
 
 A webcam computer-vision app (MediaPipe Pose, runs entirely on your machine) that turns a rec player into a televised pro. Swing a paddle at air and get a broadcast. Built for LarpHacks (theme: LARP as someone you're not) and the Sportiner Challenge.
 
+**How it works**
+
+```
+webcam -> MediaPipe Pose (offline) -> One Euro smoothing -> setup state machine
+       -> swing detector (cross-body rule, only when LIVE) -> ball, radar gun, commentator, jumbotron
+                                                           -> coach tips + skeleton replay
+```
+
+Pitch, real-vs-joke table and next steps: `PITCH.md`.
+
+Screenshots to add (not yet captured): setup overlay, LIVE broadcast with lower-third, swing replay, jumbotron.
+
 ## Features
 
 - **Guided setup**: step into frame, T-pose, hold still while it calibrates, raise your paddle hand, and "YOU ARE LIVE". It re-arms when you leave frame, so the next person gets the same flow.

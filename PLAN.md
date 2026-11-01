@@ -1,6 +1,6 @@
 # PickleLARP Live: plan
 
-Hard cutoff 17:45 Toronto. Demo is 2 min live + 2 min Q&A.
+Hard cutoff 18:45 Toronto on 2026-11-01 (earlier drafts said 17:45; `SPEC.md` timeline still shows the old times). Demo is 2 min live + 2 min Q&A.
 
 ## Concept (v2)
 
