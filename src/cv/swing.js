@@ -1,109 +1,118 @@
-// Phase-gated swing detector (CV-4). Pure: no DOM, time is passed in.
+// Swing detector v3 (SWING-FIX). Pure: no DOM, time is passed in.
 //
-// A swing is a forehand-style move by the DOMINANT hand only, seen from a camera the player faces:
-//   IDLE -> BACK    wrist held outboard of its own shoulder (backswing posture) for >= BACK_FRAMES
-//   BACK -> FWD     wrist moves back toward the body's midline faster than V_FWD for >= FWD_FRAMES
-//   FWD  -> fire    when speed falls to PEAK_DROP x its peak (or FWD_MAX_MS passes), if the elbow
-//                   was extended at the peak. Fires once, then COOLDOWN_MS of silence.
-// The wrist is measured RELATIVE to the dominant shoulder and in shoulder-widths, so walking,
-// leaning and camera distance do not change the numbers. Only the dominant wrist is tracked.
-import { L, shoulderWidth, angle } from './geometry.js';
+// v2 required "wrist out to the side, then across the body", measured in shoulder-widths. A real mimed
+// swing (side-on stance, bent elbow, diagonal path) never satisfied that. v3 detects the MOVE, not a direction:
+//   - the DOMINANT wrist is measured RELATIVE to its shoulder (walking and leaning cancel out)
+//   - in TORSO lengths (stays valid when you stand side-on and your shoulders overlap)
+//   - a swing is a fast burst (speed >= V_START for FWD_FRAMES), judged when it slows to PEAK_DROP x its peak:
+//     it must have peaked at >= V_PEAK and travelled >= MIN_DISP torso lengths, with a not-folded elbow
+//   - ignored while both wrists are above the nose (that is the jumbotron pose), 1.5 s cooldown after a fire
+// `debug` (live internals + last reject reason) is exposed for the D-key panel.
+import { L, torsoLen, angle } from './geometry.js';
 
-// Exported for live tuning from the console: PLARP_SWING.V_FWD = 3
+// Exported for live tuning from the console: PLARP_SWING.V_PEAK = 2.5
 export const SWING_TUNE = {
-  BACK_U: 0.5,         // shoulder-widths outboard of the shoulder = backswing posture
-  BACK_FRAMES: 3,
-  V_FWD: 4,            // shoulder-widths per second, inward
+  V_START: 2.5,        // torso-lengths per second to start counting a burst
+  V_PEAK: 3.5,         // the burst must reach this to count as a swing
   FWD_FRAMES: 2,
-  ELBOW_MIN_DEG: 120,  // elbow must be at least this extended at the peak
-  MIN_VIS: 0.5,        // wrist, elbow and both shoulders must be this visible
+  MIN_DISP: 0.7,       // net wrist travel across the burst, in torso lengths
+  ELBOW_MIN: 70,       // degrees; below this the arm is folded, not swinging
+  MIN_VIS: 0.4,        // wrist and shoulder must be this visible
   COOLDOWN_MS: 1500,
-  STALE_MS: 600,       // backswing expires after this long with no posture and no forward motion
-  FWD_MAX_MS: 450,
   PEAK_DROP: 0.55,
   VEL_WINDOW_MS: 120,
-  SHOULDER_M: 0.4      // assumed real shoulder width, metres, for the mph estimate
+  SWING_MAX_MS: 600,
+  LOOKBACK_MS: 250,    // where the displacement is measured from, before the burst was noticed
+  TORSO_M: 0.5         // assumed real torso length in metres, for the mph estimate
 };
 
 const IDX = {
-  r: { wr: L.RWR, el: L.REL, sh: L.RSH, other: L.LSH },
-  l: { wr: L.LWR, el: L.LEL, sh: L.LSH, other: L.RSH }
+  r: { wr: L.RWR, el: L.REL, sh: L.RSH },
+  l: { wr: L.LWR, el: L.LEL, sh: L.LSH }
 };
 
 export function createSwing(tune = SWING_TUNE) {
   const hist = [];
-  let state = 'IDLE';
-  let backFrames = 0, fwdFrames = 0;
-  let tBackLast = 0, tFwd = 0, cool = 0;
-  let peak = null;
+  let state = 'IDLE', count = 0, tStart = 0, cool = 0, peak = null;
+  const debug = { state: 'IDLE', speed: 0, disp: 0, elbow: null, vis: 0, reason: 'waiting', side: 'r', fired: 0 };
 
-  function reset() {
-    state = 'IDLE'; backFrames = 0; fwdFrames = 0; peak = null;
-  }
+  function reset() { state = 'IDLE'; count = 0; peak = null; }
 
   return {
+    debug,
     reset() { hist.length = 0; reset(); cool = 0; },
 
     // P: 33 display-space landmarks. calib: { dominant: 'l'|'r', ... } or null (defaults to 'r'). now: ms.
     update(P, calib, now) {
       const side = calib && calib.dominant === 'l' ? 'l' : 'r';
       const ix = IDX[side];
-      const wr = P[ix.wr], el = P[ix.el], sh = P[ix.sh], other = P[ix.other];
+      const wr = P[ix.wr], el = P[ix.el], sh = P[ix.sh];
+      debug.side = side;
 
-      if ([wr, el, sh, other].some(p => !p || p.v < tune.MIN_VIS)) { hist.length = 0; reset(); return null; }
+      if (!wr || !sh || wr.v < tune.MIN_VIS || sh.v < tune.MIN_VIS) {
+        hist.length = 0; reset();
+        debug.state = state; debug.speed = 0; debug.vis = wr ? wr.v : 0; debug.reason = 'wrist or shoulder not visible';
+        return null;
+      }
+      debug.vis = wr.v;
 
-      const sw = shoulderWidth(P);
-      const out = Math.sign(sh.x - other.x) || 1;           // which way is "outboard" for this arm
+      // both hands above the head is the jumbotron pose, never a swing
+      const lift = torsoLen(P) * 0.15, noseY = P[L.NOSE].y;
+      if (P[L.LWR].v > 0.4 && P[L.RWR].v > 0.4 && P[L.LWR].y < noseY - lift && P[L.RWR].y < noseY - lift) {
+        hist.length = 0; reset(); debug.state = state; debug.speed = 0; debug.reason = 'both arms up (jumbotron)';
+        return null;
+      }
+
+      const torso = torsoLen(P);
       const rel = { x: wr.x - sh.x, y: wr.y - sh.y };
-      const u = rel.x * out / sw;                           // + = wrist outboard of the shoulder
-
       hist.push({ t: now, x: rel.x, y: rel.y });
-      while (hist.length && now - hist[0].t > 300) hist.shift();
+      while (hist.length && now - hist[0].t > 900) hist.shift();
 
-      // velocity of the wrist relative to the shoulder over ~VEL_WINDOW_MS
-      let vin = 0;
       const cur = hist[hist.length - 1];
       const ref = hist.find(h => now - h.t <= tune.VEL_WINDOW_MS) || cur;
       const dt = (cur.t - ref.t) / 1000;
-      if (dt >= 0.05) {
-        vin = -((cur.x - ref.x) / dt) * out / sw;           // + = moving back toward the body
-      }
+      const sp = dt >= 0.05 ? Math.hypot(cur.x - ref.x, cur.y - ref.y) / dt / torso : 0;
+      debug.speed = sp;
 
-      if (now < cool) return null;
+      if (now < cool) { debug.state = 'COOLDOWN'; debug.reason = 'cooldown'; return null; }
 
       if (state === 'IDLE') {
-        backFrames = u >= tune.BACK_U ? backFrames + 1 : 0;
-        if (backFrames >= tune.BACK_FRAMES) { state = 'BACK'; tBackLast = now; fwdFrames = 0; }
+        count = sp >= tune.V_START ? count + 1 : 0;
+        if (count >= tune.FWD_FRAMES) {
+          state = 'FWD'; tStart = now;
+          peak = { v: sp, elbow: el && el.v >= tune.MIN_VIS ? angle(sh, el, wr) : null };
+        }
+        debug.state = state;
+        debug.reason = state === 'FWD' ? 'swing in progress' : (sp < tune.V_START ? `too slow (${sp.toFixed(1)} < ${tune.V_START})` : 'building');
         return null;
       }
 
-      if (state === 'BACK') {
-        if (u >= tune.BACK_U) tBackLast = now;
-        fwdFrames = vin >= tune.V_FWD ? fwdFrames + 1 : 0;
-        if (fwdFrames >= tune.FWD_FRAMES) {
-          state = 'FWD'; tFwd = now;
-          peak = { v: vin, elbow: angle(sh, el, wr) };
-        } else if (now - tBackLast > tune.STALE_MS) reset();
-        return null;
-      }
+      // FWD: a burst is in progress
+      if (sp > peak.v) peak = { v: sp, elbow: el && el.v >= tune.MIN_VIS ? angle(sh, el, wr) : null };
+      debug.state = 'FWD';
+      if (sp >= peak.v * tune.PEAK_DROP && now - tStart <= tune.SWING_MAX_MS) return null;
 
-      // FWD
-      if (vin > peak.v) peak = { v: vin, elbow: angle(sh, el, wr) };
-      if (vin < peak.v * tune.PEAK_DROP || now - tFwd > tune.FWD_MAX_MS) {
-        const p = peak;
-        reset();
-        if (p.elbow < tune.ELBOW_MIN_DEG) return null;      // a bent-arm flail is not a swing
-        cool = now + tune.COOLDOWN_MS;
-        return {
-          type: 'swing',
-          realMph: p.v * tune.SHOULDER_M * 2.237,           // shoulder-widths/s -> m/s -> mph
-          power: Math.min(1, p.v / 12),
-          wrist: { x: wr.x, y: wr.y },                      // where the hand is NOW, so the ball spawns on it
-          side,
-          t: now
-        };
-      }
-      return null;
+      // burst over: decide
+      const startT = tStart - tune.LOOKBACK_MS;
+      const from = hist.find(h => h.t >= startT) || hist[0];
+      const disp = Math.hypot(cur.x - from.x, cur.y - from.y) / torso;
+      const p = peak;
+      reset();
+      debug.disp = disp; debug.elbow = p.elbow;
+      if (p.v < tune.V_PEAK) { debug.reason = `peak too slow (${p.v.toFixed(1)} < ${tune.V_PEAK})`; return null; }
+      if (disp < tune.MIN_DISP) { debug.reason = `too small a move (${disp.toFixed(2)} < ${tune.MIN_DISP} torso)`; return null; }
+      if (p.elbow != null && p.elbow < tune.ELBOW_MIN) { debug.reason = `elbow folded (${Math.round(p.elbow)} < ${tune.ELBOW_MIN})`; return null; }
+
+      cool = now + tune.COOLDOWN_MS;
+      debug.fired++; debug.reason = 'SWING!';
+      return {
+        type: 'swing',
+        realMph: p.v * tune.TORSO_M * 2.237,                // torso-lengths/s -> m/s -> mph
+        power: Math.min(1, p.v / 10),
+        wrist: { x: wr.x, y: wr.y },                        // where the hand is NOW, so the ball spawns on it
+        side,
+        t: now
+      };
     }
   };
 }

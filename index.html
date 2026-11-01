@@ -69,6 +69,7 @@ canvas{width:100%;height:100%;display:block;cursor:crosshair}
 #help b{font:400 clamp(16px,3vh,24px) Impact,sans-serif;color:var(--lime);display:block;letter-spacing:.04em}
 #help i{font-style:normal;color:var(--lime)}
 #help small{display:block;margin-top:4px;color:#6f7fa3}
+#swingdbg{position:absolute;left:12px;top:84px;margin:0;background:rgba(10,16,32,.9);color:#d4ff1f;font:600 13px/1.5 ui-monospace,Menlo,monospace;padding:8px 12px;border-left:5px solid var(--lime);display:none;pointer-events:none;white-space:pre}
 #status{font:600 16px system-ui,sans-serif;color:#d4ff1f;min-height:22px}
 #keys{font:12px system-ui,sans-serif;color:#6f7fa3}
 </style>
@@ -99,6 +100,7 @@ canvas{width:100%;height:100%;display:block;cursor:crosshair}
     <div class="stat"><small>DUPR</small><b id="dupr">2.10</b></div>
     <div class="stat"><small>Top speed</small><b id="top">0 mph</b></div>
   </div>
+  <pre id="swingdbg"></pre>
   <div id="hint"></div>
   <div id="lower"><div class="a" id="lowA">YOU · WORLD NO. 1 (SELF-REPORTED)</div><div class="b" id="lowB">147 mph</div></div>
   <div id="big"></div>

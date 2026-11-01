@@ -4,6 +4,7 @@ import { createSetup, SETUP_TUNE } from './cv/setup.js';
 import { createSetupStub } from './ui/setup-stub.js';
 import { createSetupOverlay } from './ui/setup-overlay.js';
 import { createLiveHelp, NUDGE_TEXT } from './ui/live-help.js';
+import { formatSwingDebug } from './ui/swing-debug.js';
 import { LandmarkSmoother, TUNE } from './cv/filter.js';
 import { L, torsoLen } from './cv/geometry.js';
 import { initAudio, resumeAudio, warmVoices } from './fx/audio.js';
@@ -120,6 +121,9 @@ function loop() {
     ctx.fillText(started ? 'NO CAMERA · use test keys S / J / U' : '', W / 2, H / 2);
     ctx.textAlign = 'start';
   }
+  const dbg = $('swingdbg');
+  dbg.style.display = debug ? 'block' : 'none';
+  if (debug) dbg.textContent = formatSwingDebug(swingDet.debug, SWING_TUNE, setupState.phase);
   drawPose();
   drawBalls(ctx, dt);
   drawConfetti(ctx, dt);

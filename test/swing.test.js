@@ -8,19 +8,19 @@ const MS = 1000 / 30;
 const CALIB = { shoulderW: 200, torso: 260, armLen: 300, dominant: 'r' };
 const lerp = (a, b, t) => a + (b - a) * t;
 
-function person({ rw, lw, dx = 0, bend = 15, v = 0.9 }) {
+function person({ rw, lw, dx = 0, bend = 15, v = 0.9, sx = [500, 700] }) {
   const P = Array.from({ length: 33 }, () => ({ x: 600 + dx, y: 400, v }));
   const set = (i, x, y, vis = v) => { P[i] = { x: x + dx, y, v: vis }; };
   set(0, 600, 150);                 // nose
-  set(11, 500, 300); set(12, 700, 300);   // shoulders
+  set(11, sx[0], 300); set(12, sx[1], 300);   // shoulders
   set(23, 530, 560); set(24, 670, 560);   // hips
   set(25, 530, 760); set(26, 670, 760); set(27, 530, 950); set(28, 670, 950);
   // right arm
   set(16, rw[0], rw[1], rw[2] ?? v);
-  set(14, lerp(700, rw[0], 0.5), lerp(300, rw[1], 0.5) + bend);
+  set(14, lerp(sx[1], rw[0], 0.5), lerp(300, rw[1], 0.5) + bend);
   // left arm
   set(15, lw[0], lw[1], lw[2] ?? v);
-  set(13, lerp(500, lw[0], 0.5), lerp(300, lw[1], 0.5) + bend);
+  set(13, lerp(sx[0], lw[0], 0.5), lerp(300, lw[1], 0.5) + bend);
   return P;
 }
 const REST_R = [740, 520], REST_L = [460, 520];
@@ -125,9 +125,28 @@ test('a full swing with the NON-dominant hand fires 0 times', () => {
   assert.equal(run(frames, { dominant: 'r' }).length, 0);
 });
 
-test('a fast flick with no backswing fires 0 times', () => {
+test('a fast flick from rest now fires once (v3 judges speed and travel, not a backswing direction)', () => {
   const frames = [...hold(REST_R, 10), ...ramp(REST_R, FRONT, 6), ...hold(FRONT, 10)];
+  assert.equal(run(frames).length, 1);
+});
+
+test('a tiny fast twitch (small travel) fires 0 times', () => {
+  const frames = [...hold(REST_R, 10), ...ramp(REST_R, [REST_R[0] - 40, REST_R[1] - 10], 2), ...hold([REST_R[0] - 40, REST_R[1] - 10], 20)];
   assert.equal(run(frames).length, 0);
+});
+
+test('a side-on stance (shoulders overlapping) still fires once', () => {
+  assert.equal(run(forehand({ sx: [590, 610] })).length, 1);
+});
+
+test('a moderately bent elbow swing (a real racket arm) fires once', () => {
+  assert.equal(run(forehand({ bend: 45 })).length, 1);
+});
+
+test('a diagonal high-to-low swing fires once', () => {
+  const HIGH = [830, 170], LOW = [560, 470];
+  const frames = [...hold(REST_R, 10), ...ramp(REST_R, HIGH, 12), ...hold(HIGH, 6), ...ramp(HIGH, LOW, 8), ...hold(LOW, 10)];
+  assert.equal(run(frames).length, 1);
 });
 
 test('a fast swing with a sharply bent elbow fires 0 times', () => {
@@ -147,8 +166,17 @@ test('1.5 s cooldown: two swings 0.5 s apart fire once, 2.5 s apart fire twice',
   assert.equal(run(spaced).length, 2);
 });
 
-test('a stale backswing expires (no fire if the forward move starts > 600 ms after it ended)', () => {
-  // drift slowly back to rest (about 1 s, well under the forward-speed threshold), idle, then flick
-  const frames = [...hold(REST_R, 10), ...ramp(REST_R, BACK, 8), ...hold(BACK, 6), ...ramp(BACK, REST_R, 30), ...hold(REST_R, 10), ...ramp(REST_R, FRONT, 6), ...hold(FRONT, 10)];
+test('the same travel done slowly (a drift over 2 s) fires 0 times', () => {
+  const frames = [...hold(REST_R, 10), ...ramp(REST_R, BACK, 60), ...ramp(BACK, FRONT, 60), ...hold(FRONT, 10)];
   assert.equal(run(frames).length, 0);
+});
+
+test('the debug readout explains why a swing was rejected and counts fires', () => {
+  const det = createSwing();
+  const frames_ = [...hold(REST_R, 5), ...ramp(REST_R, [REST_R[0] - 40, REST_R[1] - 10], 2), ...hold([REST_R[0] - 40, REST_R[1] - 10], 20)];
+  frames_.forEach((f, i) => det.update(person(f), CALIB, 1000 + i * MS));
+  assert.match(det.debug.reason, /too|building|waiting|slow/);
+  forehand().forEach((f, i) => det.update(person(f), CALIB, 5000 + i * MS));
+  assert.equal(det.debug.fired, 1);
+  assert.match(det.debug.reason, /SWING!|cooldown/, 'after a fire the readout says SWING! then cooldown');
 });
