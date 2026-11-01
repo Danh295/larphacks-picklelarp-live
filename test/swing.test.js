@@ -36,6 +36,16 @@ function run(frames, { dominant = 'r', t0 = 1000 } = {}) {
   return events;
 }
 const hold = (rw, n, extra = {}) => Array.from({ length: n }, () => ({ rw, lw: REST_L, ...extra }));
+// arc about the dominant shoulder (angle + radius interpolation), like a real swinging arm
+function arc(from, to, n, extra = {}) {
+  const c = [extra.sx ? extra.sx[1] : 700, 300];
+  const ta = Math.atan2(from[1] - c[1], from[0] - c[0]), tb = Math.atan2(to[1] - c[1], to[0] - c[0]);
+  const ra = Math.hypot(from[0] - c[0], from[1] - c[1]), rb = Math.hypot(to[0] - c[0], to[1] - c[1]);
+  return Array.from({ length: n }, (_, i) => {
+    const t = (i + 1) / n, th = lerp(ta, tb, t), rr = lerp(ra, rb, t);
+    return { rw: [c[0] + Math.cos(th) * rr, c[1] + Math.sin(th) * rr], lw: REST_L, ...extra };
+  });
+}
 function ramp(from, to, n, extra = {}) {
   return Array.from({ length: n }, (_, i) => {
     const t = (i + 1) / n;
@@ -50,7 +60,7 @@ function forehand(extra = {}) {
     ...hold(REST_R, 10, extra),
     ...ramp(REST_R, BACK, 8, extra),
     ...hold(BACK, 6, extra),
-    ...ramp(BACK, FRONT, 8, extra),    // 350 px in ~267 ms
+    ...arc(BACK, FRONT, 8, extra),     // across the body on an arc about the shoulder
     ...hold(FRONT, 10, extra),
     ...ramp(FRONT, REST_R, 15, extra)
   ];
@@ -175,12 +185,12 @@ test('a moderately bent elbow swing (a real racket arm) fires once', () => {
 
 test('a diagonal high-to-low swing fires once', () => {
   const HIGH = [830, 170], LOW = [560, 470];
-  const frames = [...hold(REST_R, 10), ...ramp(REST_R, HIGH, 12), ...hold(HIGH, 6), ...ramp(HIGH, LOW, 8), ...hold(LOW, 10)];
+  const frames = [...hold(REST_R, 10), ...ramp(REST_R, HIGH, 12), ...hold(HIGH, 6), ...arc(HIGH, LOW, 8), ...hold(LOW, 10)];
   assert.equal(run(frames).length, 1);
 });
 
 test('a fast swing with a sharply bent elbow fires 0 times', () => {
-  assert.equal(run(forehand({ bend: 110 })).length, 0);
+  assert.equal(run(forehand({ bend: 230 })).length, 0);
 });
 
 test('low wrist visibility fires 0 times', () => {
@@ -214,9 +224,11 @@ test('the debug readout explains why a swing was rejected and counts fires', () 
 // A realistic forward swing: speed rises, peaks mid-swing, then falls (ease in-out), followed by a slow follow-through.
 function bellSwing() {
   const N = 14;
+  const c = [700, 300], ta = Math.atan2(BACK[1] - c[1], BACK[0] - c[0]), tb = Math.atan2(FRONT[1] - c[1], FRONT[0] - c[0]);
+  const ra = Math.hypot(BACK[0] - c[0], BACK[1] - c[1]), rb = Math.hypot(FRONT[0] - c[0], FRONT[1] - c[1]);
   const ease = Array.from({ length: N }, (_, i) => {
-    const t = (i + 1) / N, e = 0.5 - 0.5 * Math.cos(Math.PI * t);
-    return { rw: [lerp(BACK[0], FRONT[0], e), lerp(BACK[1], FRONT[1], e)], lw: REST_L };
+    const t = (i + 1) / N, e = 0.5 - 0.5 * Math.cos(Math.PI * t), th = lerp(ta, tb, e), rr = lerp(ra, rb, e);
+    return { rw: [c[0] + Math.cos(th) * rr, c[1] + Math.sin(th) * rr], lw: REST_L };
   });
   const tail = ramp(FRONT, [FRONT[0] - 25, FRONT[1] + 10], 20);
   return { frames: [...hold(REST_R, 10), ...ramp(REST_R, BACK, 14), ...hold(BACK, 8), ...ease, ...tail], peakIdx: 10 + 14 + 8 + N / 2 };
