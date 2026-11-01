@@ -122,7 +122,7 @@ addEventListener('keydown', e => {
       wrist: { x: W * 0.55, y: H * 0.55 }, side: 'r', t: performance.now() });
   }
   if (k === 'd') debug = !debug;
-  if (k === 'f' && window.plarp) window.plarp.toggleFullscreen();
+  if (k === 'f' && !e.repeat && !e.metaKey && !e.ctrlKey && !e.altKey && window.plarp) window.plarp.toggleFullscreen();
   if (k === 'j') boom();
   if (k === 'u') sad();
 });

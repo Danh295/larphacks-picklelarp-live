@@ -1,4 +1,4 @@
-import { app, BrowserWindow, Menu, ipcMain, session, systemPreferences } from 'electron';
+import { app, BrowserWindow, Menu, dialog, ipcMain, session, systemPreferences } from 'electron';
 import http from 'node:http';
 import fs from 'node:fs';
 import path from 'node:path';
@@ -22,7 +22,9 @@ function startServer() {
     catch { res.writeHead(400).end(); return; }
     if (rel.endsWith('/')) rel += 'index.html';
     const file = path.join(ROOT, rel);
-    if (file !== ROOT && !file.startsWith(ROOT + path.sep)) { res.writeHead(403).end(); return; }
+    // Serve only what the app needs (not .git, node_modules, research, ...).
+    const ok = /^\/(index\.html|src\/|vendor\/|build\/)/.test(rel) && file.startsWith(ROOT + path.sep);
+    if (!ok) { res.writeHead(403).end(); return; }
     fs.stat(file, (err, st) => {
       if (err || !st.isFile()) { res.writeHead(404).end('not found'); return; }
       res.writeHead(200, {
@@ -30,7 +32,9 @@ function startServer() {
         'Content-Length': st.size,
         'Cache-Control': 'no-cache'
       });
-      fs.createReadStream(file).pipe(res);
+      const rs = fs.createReadStream(file);
+      rs.on('error', () => res.destroy());
+      rs.pipe(res);
     });
   });
   return new Promise(resolve => server.listen(0, '127.0.0.1', () => resolve(server.address().port)));
@@ -43,12 +47,16 @@ async function createWindow() {
   const port = await startServer();
   const origin = `http://127.0.0.1:${port}`;
 
-  const allow = p => p === 'media';
-  session.defaultSession.setPermissionRequestHandler((_wc, permission, cb) => cb(allow(permission)));
-  session.defaultSession.setPermissionCheckHandler((_wc, permission) => allow(permission));
+  const allow = (url, p) => p === 'media' && (url || '').startsWith(origin + '/');
+  session.defaultSession.setPermissionRequestHandler((wc, permission, cb) => cb(allow(wc.getURL(), permission)));
+  session.defaultSession.setPermissionCheckHandler((wc, permission) => allow(wc ? wc.getURL() : '', permission));
 
   if (process.platform === 'darwin') {
-    try { await systemPreferences.askForMediaAccess('camera'); } catch (e) { console.warn('camera access', e); }
+    try {
+      if (!(await systemPreferences.askForMediaAccess('camera'))) {
+        dialog.showErrorBox('Camera access is off', 'Enable the camera for this app in System Settings > Privacy & Security > Camera, then relaunch.');
+      }
+    } catch (e) { console.warn('camera access', e); }
   }
 
   Menu.setApplicationMenu(null);
@@ -57,6 +65,8 @@ async function createWindow() {
     webPreferences: { preload: path.join(ROOT, 'electron', 'preload.cjs'), contextIsolation: true, sandbox: true }
   });
   win.on('closed', () => { win = null; });
+  win.webContents.setWindowOpenHandler(() => ({ action: 'deny' }));
+  win.webContents.on('will-navigate', (e, url) => { if (!url.startsWith(origin + '/')) e.preventDefault(); });
   // Esc leaves fullscreen; plain F is handled in the renderer so typing in the name box is safe.
   win.webContents.on('before-input-event', (e, input) => {
     if (input.type === 'keyDown' && input.key === 'Escape' && win.isFullScreen()) { win.setFullScreen(false); e.preventDefault(); }
@@ -65,5 +75,5 @@ async function createWindow() {
 }
 
 ipcMain.on('toggle-fullscreen', toggleFullscreen);
-app.whenReady().then(createWindow);
+app.whenReady().then(createWindow).catch(e => { dialog.showErrorBox('PickleLARP Live failed to start', String(e)); app.quit(); });
 app.on('window-all-closed', () => app.quit());
