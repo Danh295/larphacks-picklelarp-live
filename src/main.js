@@ -1,6 +1,8 @@
 import { loadPose, detect } from './cv/pose.js';
 import { createSwing, SWING_TUNE } from './cv/swing.js';
 import { createSetup, SETUP_TUNE } from './cv/setup.js';
+import { createSetupStub } from './ui/setup-stub.js';
+import { createSetupOverlay } from './ui/setup-overlay.js';
 import { LandmarkSmoother, TUNE } from './cv/filter.js';
 import { L, torsoLen } from './cv/geometry.js';
 import { initAudio, resumeAudio, warmVoices } from './fx/audio.js';
@@ -38,7 +40,8 @@ renderTicker();
 
 // ---------- detectors ----------
 const swingDet = createSwing();
-const setup = createSetup();
+const setup = new URLSearchParams(location.search).get('stub') === 'setup' ? createSetupStub() : createSetup();
+const overlay = createSetupOverlay($('setup'));
 let setupState = { phase: 'WAITING', progress: 0, message: '', calib: null };
 window.PLARP_SETUP = SETUP_TUNE; // live tuning from the console, e.g. PLARP_SETUP.TPOSE_MS = 1000
 
@@ -59,6 +62,7 @@ function process(raw, now) {
   const P = smoother.update(raw, now);
   pose = P;
   setupState = setup.update(P, now);
+  overlay.render(setupState, now);
   if (!P || setupState.phase !== 'LIVE') return;
   const ev = swingDet.update(P, setupState.calib, now);
   if (ev) onSwing(ev);
