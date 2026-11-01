@@ -97,7 +97,7 @@ Cut order if late: APP-2 (run with `npm start`), then the CV-3 debug view, then 
 
 ## Verification
 
-- `node --test test/` passes (filter, swing, setup).
+- `node --test test/*.test.js` passes (filter, swing, ball, setup). Use the glob: `node --test test/` fails on Node 25.
 - `npm start` opens the window, the camera works, the setup flow reaches LIVE with a real person.
 - Camera checklist (record results in the ticket): swings fire 5/5 real, 0/5 fidgets and walks; ball always arcs upward; still skeleton is steady in the `D` view; leaving frame for over 3 s returns to WAITING.
 - Network off: the app still loads the model.

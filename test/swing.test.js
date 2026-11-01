@@ -66,6 +66,18 @@ test('a real forehand fires exactly once, on the dominant side', () => {
   assert.ok(typeof ev[0].wrist.x === 'number' && typeof ev[0].wrist.y === 'number');
 });
 
+test('the event reports where the wrist is when it fires, so the ball spawns on the hand', () => {
+  const det = createSwing();
+  const frames = forehand();
+  let checked = 0;
+  frames.forEach((f, i) => {
+    const P = person(f);
+    const ev = det.update(P, CALIB, 1000 + i * MS);
+    if (ev) { assert.equal(ev.wrist.x, P[16].x); assert.equal(ev.wrist.y, P[16].y); checked++; }
+  });
+  assert.equal(checked, 1);
+});
+
 test('the mirror-image forehand fires for a left-handed player', () => {
   // Swap which arm swings and which shoulder is dominant by mirroring the whole scene about x=600.
   const det = createSwing();

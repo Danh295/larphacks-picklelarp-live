@@ -61,13 +61,12 @@ export function createSwing(tune = SWING_TUNE) {
       while (hist.length && now - hist[0].t > 300) hist.shift();
 
       // velocity of the wrist relative to the shoulder over ~VEL_WINDOW_MS
-      let vin = 0, vx = 0, vy = 0;
+      let vin = 0;
       const cur = hist[hist.length - 1];
       const ref = hist.find(h => now - h.t <= tune.VEL_WINDOW_MS) || cur;
       const dt = (cur.t - ref.t) / 1000;
       if (dt >= 0.05) {
-        vx = (cur.x - ref.x) / dt; vy = (cur.y - ref.y) / dt;
-        vin = -vx * out / sw;                               // + = moving back toward the body
+        vin = -((cur.x - ref.x) / dt) * out / sw;           // + = moving back toward the body
       }
 
       if (now < cool) return null;
@@ -83,13 +82,13 @@ export function createSwing(tune = SWING_TUNE) {
         fwdFrames = vin >= tune.V_FWD ? fwdFrames + 1 : 0;
         if (fwdFrames >= tune.FWD_FRAMES) {
           state = 'FWD'; tFwd = now;
-          peak = { v: vin, vx, vy, wrist: { x: wr.x, y: wr.y }, elbow: angle(sh, el, wr) };
+          peak = { v: vin, elbow: angle(sh, el, wr) };
         } else if (now - tBackLast > tune.STALE_MS) reset();
         return null;
       }
 
       // FWD
-      if (vin > peak.v) peak = { v: vin, vx, vy, wrist: { x: wr.x, y: wr.y }, elbow: angle(sh, el, wr) };
+      if (vin > peak.v) peak = { v: vin, elbow: angle(sh, el, wr) };
       if (vin < peak.v * tune.PEAK_DROP || now - tFwd > tune.FWD_MAX_MS) {
         const p = peak;
         reset();
@@ -99,7 +98,7 @@ export function createSwing(tune = SWING_TUNE) {
           type: 'swing',
           realMph: p.v * tune.SHOULDER_M * 2.237,           // shoulder-widths/s -> m/s -> mph
           power: Math.min(1, p.v / 12),
-          wrist: p.wrist,
+          wrist: { x: wr.x, y: wr.y },                      // where the hand is NOW, so the ball spawns on it
           side,
           t: now
         };

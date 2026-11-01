@@ -109,7 +109,7 @@ function loop() {
     ctx.textAlign = 'start';
   }
   drawPose();
-  drawBalls(ctx, now, dt);
+  drawBalls(ctx, dt);
   drawConfetti(ctx, dt);
 }
 

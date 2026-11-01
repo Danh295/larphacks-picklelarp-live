@@ -1,6 +1,6 @@
 // Broadcast effects: ball, confetti, lower-third, big text, HUD.
 import { grunt, thwack, sadClap, crowd, say } from './audio.js';
-import { launch as launchBall, step as stepBall } from './ball.js';
+import { launch as launchBall, step as stepBall, alpha as ballAlpha } from './ball.js';
 
 const $ = id => document.getElementById(id);
 let W = 1280, H = 720;
@@ -117,20 +117,21 @@ export function sad() {
   setTimeout(() => say('A single clap. From a single man.'), 500);
 }
 
-export function drawBalls(ctx, now, dt) {
+export function drawBalls(ctx, dt) {
   for (let i = balls.length - 1; i >= 0; i--) {
     const b = balls[i];
     stepBall(b, dt);
     if (b.dead) { balls.splice(i, 1); continue; }
+    const fade = ballAlpha(b);
     b.trail.push({ x: b.x, y: b.y });
     if (b.trail.length > 14) b.trail.shift();
     ctx.save();
     for (let k = 0; k < b.trail.length; k++) {
-      ctx.globalAlpha = k / b.trail.length * 0.5;
+      ctx.globalAlpha = k / b.trail.length * 0.5 * fade;
       ctx.fillStyle = '#d4ff1f';
       ctx.beginPath(); ctx.arc(b.trail[k].x, b.trail[k].y, 5 + k, 0, 7); ctx.fill();
     }
-    ctx.globalAlpha = 1;
+    ctx.globalAlpha = fade;
     ctx.fillStyle = '#d4ff1f'; ctx.strokeStyle = '#6b8000'; ctx.lineWidth = 3;
     ctx.beginPath(); ctx.arc(b.x, b.y, b.r, 0, 7); ctx.fill(); ctx.stroke();
     ctx.fillStyle = '#6b8000';
