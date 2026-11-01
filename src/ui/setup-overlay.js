@@ -25,7 +25,9 @@ function stepNumber(phase, stage) {
 export function viewFor(s, stillMs = DEFAULT_STILL_MS) {
   const phase = s && s.phase ? s.phase : 'WAITING';
   const progress = Math.min(1, Math.max(0, (s && s.progress) || 0));
-  const stage = phase === 'CALIBRATE' && s && s.stage === 'raise' ? 'raise' : 'still';
+  // `stage` may be missing (older setup results): then infer the raise step from the message.
+  const raiseMsg = s && s.stage == null && /raise/i.test(s.message || '');
+  const stage = phase === 'CALIBRATE' && s && (s.stage === 'raise' || raiseMsg) ? 'raise' : 'still';
   const n = stepNumber(phase, stage);
   const stepLabel = n ? `STEP ${n} OF 4` : '';
   if (phase === 'LIVE') {

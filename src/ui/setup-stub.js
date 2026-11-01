@@ -11,11 +11,13 @@ const STEPS = [
 const TOTAL = STEPS.reduce((a, s) => a + s.ms, 0);
 
 export function createSetupStub() {
-  let t0 = null;
+  let t0 = null, forced = false;
+  const LIVE = { phase: 'LIVE', progress: 1, message: '', calib: DEFAULT_CALIB, stage: null };
   return {
-    reset() { t0 = null; },
-    skip() { return { phase: 'LIVE', progress: 1, message: '', calib: DEFAULT_CALIB }; },
+    reset() { t0 = null; forced = false; },
+    skip() { forced = true; return { ...LIVE }; },
     update(landmarks, tMs) {
+      if (forced) return { ...LIVE };
       if (t0 === null) t0 = tMs;
       let t = (tMs - t0) % TOTAL;
       for (const s of STEPS) {

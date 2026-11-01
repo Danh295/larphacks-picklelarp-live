@@ -85,3 +85,21 @@ test('viewFor: a missing stage during CALIBRATE falls back to the still step (ol
   assert.equal(r.arrow, false);
   assert.equal(r.stepLabel, 'STEP 3 OF 4');
 });
+
+test('viewFor: with no stage, a raise-hand message still shows the raise step', () => {
+  const r = viewFor({ phase: 'CALIBRATE', progress: 0.3, message: 'Raise your paddle hand above your head' });
+  assert.equal(r.arrow, true);
+  assert.equal(r.countdown, null);
+  assert.equal(r.stepLabel, 'STEP 4 OF 4');
+  // an explicit stage always wins over the message
+  assert.equal(viewFor({ phase: 'CALIBRATE', stage: 'still', message: 'Raise your paddle hand' }).arrow, false);
+});
+
+test('stub: skip() holds LIVE until reset()', () => {
+  const s = createSetupStub();
+  s.update(null, 0);
+  assert.equal(s.skip().phase, 'LIVE');
+  for (let t = 100; t < 20000; t += 500) assert.equal(s.update(null, t).phase, 'LIVE');
+  s.reset();
+  assert.equal(s.update(null, 30000).phase, 'WAITING');
+});
