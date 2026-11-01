@@ -58,6 +58,19 @@ const families = {
     const n = 5 + Math.floor(r() * 6), kEnd = 1.15 + r() * 0.25;
     return [...hold(REST, 10), ...Array.from({ length: n }, (_, i) => ({ rw: REST, k: lerp(1, kEnd, (i + 1) / n) })), ...hold(REST, 12, { k: kEnd })];
   },
+  // arm raised and dropped fast on the dominant side, repeated 1 to 3 times (never crosses the body)
+  'arm-up-down': r => {
+    const dx = -30 + r() * 170, lo = [700 + dx, 480 + r() * 60], hi = [700 + dx * (0.5 + r() * 0.5), 130 + r() * 130];
+    const n = 4 + Math.floor(r() * 5), reps = 1 + Math.floor(r() * 3), bend = 15 + r() * 45;
+    const f = [...hold(lo, 8, { bend })];
+    for (let k = 0; k < reps; k++) f.push(...ramp(lo, hi, n, { bend }), ...hold(hi, 2, { bend }), ...ramp(hi, lo, n, { bend }), ...hold(lo, 2, { bend }));
+    return [...f, ...hold(lo, 10, { bend })];
+  },
+  // hand starts near the body's centerline and sweeps outward (away from the body)
+  'outward': r => {
+    const a = [610 + r() * 40, 340 + r() * 60], b = [840 + r() * 70, 180 + r() * 200], n = 4 + Math.floor(r() * 6), bend = 15 + r() * 45;
+    return [...hold(a, 10, { bend }), ...ramp(a, b, n, { bend }), ...hold(b, 12, { bend })];
+  },
   // single-frame tracking glitch: the wrist teleports for one frame (some at low visibility), then returns
   'glitch': r => {
     const f = [...hold(REST, 25)];
@@ -67,13 +80,13 @@ const families = {
   }
 };
 
-// recall: real swings with random geometry (forward swing 0.2 to 0.33 s, slower wind-up 0.5 to 0.9 s). The wrist moves on ARCS around the shoulder at about arm's length
+// recall: real swings with random geometry (forward swing 0.2 to 0.33 s, slower wind-up 0.5 to 0.9 s). The forward swing ends ACROSS the body (past the torso centerline). The wrist moves on ARCS around the shoulder at about arm's length
 // (that is what a swinging arm does), unlike the straight-line "pull in". Returns { frames, forwardStart }.
 function realSwing(r) {
   const sideOn = r() < 0.25, bend = 15 + r() * 40, sx = sideOn ? [590, 610] : [500, 700];
   const S = [sx[1], 300], R = (0.65 + r() * 0.25) * TORSO, D = Math.PI / 180;
   const pt = (deg, rr) => [S[0] + Math.cos(deg * D) * rr, S[1] + Math.sin(deg * D) * rr];
-  const back = pt(-50 + r() * 65, R), front = pt(115 + r() * 55, R * (0.95 + r() * 0.15));
+  const back = pt(-50 + r() * 65, R), front = pt(135 + r() * 40, R * (0.95 + r() * 0.15));
   const rest = [S[0] + 40, S[1] + 220];
   const wn = 16 + Math.floor(r() * 11), fn = 6 + Math.floor(r() * 5), pre = 10, hb = 4 + Math.floor(r() * 5);
   const x = { bend, sx };

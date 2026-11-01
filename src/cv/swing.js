@@ -24,6 +24,8 @@ export const SWING_TUNE = {
   FIRE_DROP: 0.9,      // decide once speed falls to this fraction of the peak (just past contact)
   VEL_WINDOW_MS: 105, 
   SWING_MAX_MS: 600,
+  CROSS_MARGIN: 0.08,  // the wrist must get at least this far (torso lengths) onto BOTH sides of the body's centerline
+  CROSS_SWEEP: 0.7,    // and sweep at least this far laterally during the burst: a swing goes across the body
   MAX_INWARD: 0.6,     // reject if the wrist moves toward the shoulder: cos(angle between velocity and shoulder->wrist) < -this
   MIN_REACH: 0.45,     // wrist-to-shoulder distance at the peak, in torso lengths (a swing keeps the arm out)
   LOOKBACK_MS: 250,    // where the displacement is measured from, before the burst was noticed
@@ -38,7 +40,7 @@ const IDX = {
 export function createSwing(tune = SWING_TUNE) {
   const hist = [];
   let state = 'IDLE', count = 0, tStart = 0, cool = 0, peak = null;
-  const debug = { state: 'IDLE', speed: 0, disp: 0, elbow: null, radial: 0, reach: 0, vis: 0, reason: 'waiting', side: 'r', fired: 0 };
+  const debug = { state: 'IDLE', speed: 0, disp: 0, elbow: null, radial: 0, reach: 0, cross: null, vis: 0, reason: 'waiting', side: 'r', fired: 0 };
 
   function reset() { state = 'IDLE'; count = 0; peak = null; }
 
@@ -69,7 +71,12 @@ export function createSwing(tune = SWING_TUNE) {
 
       const torso = torsoLen(P);
       const rel = { x: wr.x - sh.x, y: wr.y - sh.y };
-      hist.push({ t: now, x: rel.x, y: rel.y, ax: wr.x, ay: wr.y });
+      // lateral position of the wrist relative to the torso axis (mid-shoulder -> mid-hip), in torso lengths
+      const msx = (P[L.LSH].x + P[L.RSH].x) / 2, msy = (P[L.LSH].y + P[L.RSH].y) / 2;
+      const mhx = (P[L.LHIP].x + P[L.RHIP].x) / 2, mhy = (P[L.LHIP].y + P[L.RHIP].y) / 2;
+      const al = Math.hypot(mhx - msx, mhy - msy) || 1;
+      const lat = ((wr.x - msx) * ((mhy - msy) / al) - (wr.y - msy) * ((mhx - msx) / al)) / torso;
+      hist.push({ t: now, x: rel.x, y: rel.y, ax: wr.x, ay: wr.y, s: lat });
       while (hist.length && now - hist[0].t > 900) hist.shift();
 
       const cur = hist[hist.length - 1];
@@ -121,6 +128,13 @@ export function createSwing(tune = SWING_TUNE) {
       debug.radial = p.radial; debug.reach = p.reach;
       if (p.radial < -tune.MAX_INWARD) { debug.reason = `arm moving inward (${p.radial.toFixed(2)} < -${tune.MAX_INWARD})`; return null; }
       if (p.reach < tune.MIN_REACH) { debug.reason = `arm too close to body (${p.reach.toFixed(2)} < ${tune.MIN_REACH} torso)`; return null; }
+      let sMin = Infinity, sMax = -Infinity;
+      for (const h of hist) if (h.t >= startT) { if (h.s < sMin) sMin = h.s; if (h.s > sMax) sMax = h.s; }
+      debug.cross = { min: sMin, max: sMax };
+      if (!(sMin <= -tune.CROSS_MARGIN && sMax >= tune.CROSS_MARGIN && sMax - sMin >= tune.CROSS_SWEEP)) {
+        debug.reason = `not crossing the body (side ${sMin.toFixed(2)} to ${sMax.toFixed(2)}, need both sides and a ${tune.CROSS_SWEEP} sweep)`;
+        return null;
+      }
       if (p.elbow != null && p.elbow < tune.ELBOW_MIN) { debug.reason = `elbow folded (${Math.round(p.elbow)} < ${tune.ELBOW_MIN})`; return null; }
 
       cool = now + tune.COOLDOWN_MS;

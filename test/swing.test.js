@@ -242,3 +242,16 @@ test('fires within a few frames of the speed peak (contact), not after the swing
   assert.ok(at >= 0, 'fired');
   assert.ok(at - peakIdx <= 4, `fired ${at - peakIdx} frames after the speed peak (should be <= 4 frames, about 130 ms)`);
 });
+
+test('a fast swing that stays on one side of the body (never crosses the centerline) fires 0 times', () => {
+  // arm sweeps on the dominant side only: shoulder-height out wide, down and in front of the shoulder, x stays right of the body center
+  const OUT = [880, 330], DOWN = [715, 470];
+  const frames = [...hold(REST_R, 10), ...arc(REST_R, OUT, 14), ...hold(OUT, 4), ...arc(OUT, DOWN, 8), ...hold(DOWN, 10)];
+  assert.equal(run(frames).length, 0);
+});
+
+test('the same swing continued across the body fires once', () => {
+  const OUT = [880, 330], ACROSS = [520, 430];
+  const frames = [...hold(REST_R, 10), ...arc(REST_R, OUT, 14), ...hold(OUT, 4), ...arc(OUT, ACROSS, 8), ...hold(ACROSS, 10)];
+  assert.equal(run(frames).length, 1);
+});
